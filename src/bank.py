@@ -1,3 +1,5 @@
+WAD = 10 ** 18
+
 class Loan:
     # When a user creates a loan, they will put up a certain
     # amount of collateral (collateral_amt), and then take money
@@ -17,150 +19,150 @@ class CollateralInfo:
     # collateral type, and the interest rate for taking loans out
     # on this particular collateral type.
     def __init__(safe_spot_price, total_debt_amt,
-                max_debt_amt, interest_rate):
+                max_debt_amt, min_debt_amt, interest_rate):
         self.safe_spot_price = safe_spot_price
         self.total_debt_amt = total_debt_amt
         self.max_debt_amt = max_debt_amt
+        self.min_debt_amt = min_debt_amt
         self.interest_rate = interest_rate
+        self.max_active_aution_debt = 0
+        self.amt_active_aution_debt = 0
+        self.liquidation_penalty = 0
 
 class Bank:
     
-    def __init__():
-        self.loans = [][]
-        self.collateral_specifications = []
-        self.bank_is_open = 1
-        self.total_debt_issued = 0
-        self.maximum_debt_amount = 0
-        self.approved_loan_modifiers = [][]
+    def __init__(loans, collateral_infos, bank_is_closed, total_debt_issued,
+                max_debt_amount, approved_loan_modifiers, who_owns_collateral,
+                who_owns_debt):
+        self.loans = loans
+        self.collateral_infos = collateral_infos
+        self.bank_is_closed = bank_is_closed
+        self.total_debt_issued = total_debt_issued
+        self.max_debt_amount = max_debt_amount
+        self.approved_loan_modifiers = approved_loan_modifiers
+        self.who_owns_collateral = who_owns_collateral
+        self.who_owns_debt = who_owns_debt
 
-    def modifyLoan(collateral_type, delta_collateral_amount, delta_debt_amount, user, sender):
-        if not self.bank_is_open: return
-        
+        self.max_active_aution_debt = 0
+        self.amt_active_aution_debt = 0
+
+    def debt_has_increased(delta_debt_amt):
+        return delta_debt_amt > 0
+
+    def above_max_debt(delta_debt_amt, collateral_info):
+        above_max_debt_per_collateral = (collateral_info.total_debt_amt + delta_debt_amt) * collateral_info.interest_rate > collateral_info.max_debt_amt
+        above_max_system_debt = self.total_debt_issued + (delta_debt_amt * collateral_info.interest_rate) < self.max_debt_amt
+        return above_max_debt_per_collateral or above_max_system_debt
+
+    def unacceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan):
+        removed_collateral_added_debt = delta_collateral_amt > 0 and delta_debt_amt < 0
+        users_tab = (loan.debt_amt + delta_debt_amt) * collateral_info.interest_rate
+        user_took_out_too_much = users_tab >= (loan.collateral_amt + delta_collateral_amt) * collateral_info.safe_spot_price
+        return removed_collateral_added_debt and user_took_out_too_much
+
+    def sender_being_malicious(sender, user, delta_debt_amt, delta_collateral_amt):
+        unapproved_modifier = self.approved_loan_modifiers[sender][user] == 1
+        removed_collateral_added_debt = delta_debt_amt >= 0 and delta_collateral_amt <= 0
+        return unapproved_modifier and removed_collateral_added_debt
+
+    def miniscule_loan(loan, delta_debt_amt, collateral_info):
+        new_debt_amt = loan.debt_amt + delta_debt_amt
+        return new_debt_amt != 0 and new_debt_amt * collateral_info.interest_rate <= collateral_info.min_debt_amt 
+
+    def sender_no_consent():
+        return delta_collateral_amt <= 0 and not self.approved_loan_modifiers[sender][user]
+
+    def loan_user_no_consent():
+        return delta_debt_amt <= 0 and not self.approved_loan_modifiers[sender][sender]
+
+    def unacceptable_modification(delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user):
+        debt_amt_is_unsafe = debt_has_increased(delta_debt_amt) and above_max_debt(delta_debt_amt, collateral_info)
+        user_has_unacceptable_loan = unacceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan)
+        sender_is_malicious = sender_being_malicious(sender, user, delta_debt_amt, delta_collateral_amt)
+        sender_doesnt_consent = sender_no_consent()
+        loan_user_doesnt_consent = loan_user_no_consent()
+        loan_isnt_miniscule = miniscule_loan(loan, delta_debt_amt, collateral_info)
+        return debt_amt_is_unsafe or sender_is_malicious or user_has_unacceptable_loan
+                or sender_doesnt_consent or loan_user_doesnt_consent or loan_isnt_miniscule
+                or self.bank_is_closed
+
+    def modifyLoan(collateral_type, delta_collateral_amt, delta_debt_amt, user, sender):
+        collateral_info = self.collateral_infos[collateral_type]
         loan = self.loans[collateral_type][user]
-        collateral_specification = self.collateral_specifications[collateral_type]
-        loan.collateral_amount += delta_collateral_amount
-        loan.debt_amount += delta_debt_amount
-        collateral_specification.total_debt_amount += delta_debt_amount
-        
-        dtab = delta_debt_amount * collateral_specification.interest_rate
-        users_tab = collateral_specification.interest_rate * loan.debt_amount
-        self.total_debt_issued = self.total_debt_issued + dtab
 
-        debt_has_decreased = delta_debt_amount <= 0
-        below_maximum_debt = self.total_debt_issued < self.maximum_debt_amount
-        below_maximum_debt_per_collateral = collateral_specification.total_debt_amount * collateral_specification.interest_rate < collateral_specification.maximum_debt_amount # why interest rate
-        if not (debt_has_decreased or (below_maximum_debt and below_maximum_debt_per_collateral)): return
+        if unacceptable_modification(delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user): return
 
-        added_collateral = delta_collateral_amount >= 0
-        added_collateral_removed_debt = delta_debt_amount <= 0 and added_collateral
-        user_owes_less_than_collateral_is_worth = users_tab <= loan.collateral_amount * collateral_specification.safety_spot_price
-        if not (added_collateral_removed_debt) or user_owes_less_than_collateral_is_worth: return
-        approved_modifier = approved_loan_modifiers[sender][user] == 1
-        if not (approved_modifier or added_collateral_removed_debt): return
-        #still more to do
+        loan.collateral_amt += delta_collateral_amt
+        loan.debt_amt += delta_debt_amt
+        collateral_info.total_debt_amt += delta_debt_amt
+        self.who_owns_collateral = self.who_owns_collateral[collateral_type][sender] - delta_collateral_amt
+        self.who_owns_debt = self.who_owns_debt[user] + (collateral_info.interest_rate * delta_debt_amt)
 
-    def liquidate(bad_loan, collateral_type, keeper):
-                if not live: return
-        b_loan = bank.loans[collateral_type][bad_loan]
-        collateral_spec = bank.collateral_specifications[collateral_type]
-        
-        pass
+    #
+    #
+    #
+    #
+    #
 
-    pass
+    def loan_is_acceptable(collateral_info, loan):
+        collateral_is_worthless = collateral_info.safe_spot_price < 0
+        loan_is_collateralized = loan.collateral_amt * collateral_info.safe_spot_price > loan.debt_amt * collateral_info.interest_rate)
+        return collateral_is_worthless or loan_is_collateralized
 
+    def too_much_auction_debt():
+        a = self.max_active_aution_debt < self.amt_active_aution_debt
+        b = collateral_info.max_active_aution_debt < collateral_info.amt_active_aution_debt
+        return a or b
 
+    def inappropriate_time_to_liquidate(collateral_info, loan):
+        loan_is_safe = loan_is_acceptable(collateral_info, loan)
+        too_much_debt_in_auctions = too_much_auction_debt()
+        return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
+    def liquidate(collateral_type, user):
+        loan = self.loans[collateral_type][user]
+        collateral_info = self.collateral_infos[collateral_type]
 
-    // --- CDP Liquidation: all bark and no bite ---
-    //
-    // Liquidate a Vault and start a Dutch auction to sell its collateral for DAI.
-    //
-    // The third argument is the address that will receive the liquidation reward, if any.
-    //
-    // The entire Vault will be liquidated except when the target amount of DAI to be raised in
-    // the resulting auction (debt of Vault + liquidation penalty) causes either Dirt to exceed
-    // Hole or ilk.dirt to exceed ilk.hole by an economically significant amount. In that
-    // case, a partial liquidation is performed to respect the global and per-ilk limits on
-    // outstanding DAI target. The one exception is if the resulting auction would likely
-    // have too little collateral to be interesting to Keepers (debt taken from Vault < ilk.dust),
-    // in which case the function reverts. Please refer to the code and comments within if
-    // more detail is desired.
-    function bark(bytes32 ilk, address urn, address kpr) external returns (uint256 id) {
+        if inappropriate_time_to_liquidate(collateral_info, loan): return
 
-        (uint256 ink, uint256 art) = vat.urns(ilk, urn);
-        Ilk memory milk = ilks[ilk];
-        uint256 dart;
-        uint256 rate;
-        uint256 dust;
-        {
-            uint256 spot;
-            (,rate, spot,, dust) = vat.ilks(ilk);
-            require(spot > 0 && mul(ink, spot) < mul(art, rate), "Dog/not-unsafe");
+        max_amt_to_liquidate = min(self.max_active_aution_debt - self.amt_active_aution_debt, collateral_info.max_active_aution_debt - collateral_info.amt_active_aution_debt)
+        # ??????? below
+        dart = min(loan.debt_amt, max_amt_to_liquidate * WAD / collateral_info.interest_rate / collateral_info.liquidation_penalty)
 
-            // Get the minimum value between:
-            // 1) Remaining space in the general Hole
-            // 2) Remaining space in the collateral hole
-            require(Hole > Dirt && milk.hole > milk.dirt, "Dog/liquidation-limit-hit");
-            uint256 room = min(Hole - Dirt, milk.hole - milk.dirt);
-
-            // uint256.max()/(RAD*WAD) = 115,792,089,237,316
-            dart = min(art, mul(room, WAD) / rate / milk.chop);
-
-            // Partial liquidation edge case logic
-            if (art > dart) {
-                if (mul(art - dart, rate) < dust) {
-
-                    // If the leftover Vault would be dusty, just liquidate it entirely.
-                    // This will result in at least one of dirt_i > hole_i or Dirt > Hole becoming true.
-                    // The amount of excess will be bounded above by ceiling(dust_i * chop_i / WAD).
-                    // This deviation is assumed to be small compared to both hole_i and Hole, so that
-                    // the extra amount of target DAI over the limits intended is not of economic concern.
-                    dart = art;
-                } else {
-
-                    // In a partial liquidation, the resulting auction should also be non-dusty.
-                    require(mul(dart, rate) >= dust, "Dog/dusty-auction-from-partial-liquidation");
-                }
+        if (loan.debt_amt > dart) {
+            if (loan.debt_amt - dart) * collateral_info.interest_rate < collateral_info.dust {
+                dart = loan.debt_amt
+            } else {
+                if not (dart * collateral_info.interest_rate >= collateral_info.dust)
             }
         }
 
-        uint256 dink = mul(ink, dart) / art;
+        dink = loan.collateral_amt * dart / loan.debt_amt
+        if not (dink > 0): return
+        if not (dart <= 2**255 and dink <= 2**255)
 
-        require(dink > 0, "Dog/null-auction");
-        require(dart <= 2**255 && dink <= 2**255, "Dog/overflow");
 
-        vat.grab(
-            ilk, urn, milk.clip, address(vow), -int256(dink), -int256(dart)
-        );
 
-        uint256 due = mul(dart, rate);
-        vow.fess(due);
+        # vat.grab(
+        #     ilk, urn, milk.clip, address(vow), -int256(dink), -int256(dart)
+        # );
 
-        {   // Avoid stack too deep
-            // This calcuation will overflow if dart*rate exceeds ~10^14
-            uint256 tab = mul(due, milk.chop) / WAD;
-            Dirt = add(Dirt, tab);
-            ilks[ilk].dirt = add(milk.dirt, tab);
+        # uint256 due = mul(dart, rate);
+        # vow.fess(due);
 
-            id = ClipperLike(milk.clip).kick({
-                tab: tab,
-                lot: dink,
-                usr: urn,
-                kpr: kpr
-            });
-        }
+        # {   // Avoid stack too deep
+        #     // This calcuation will overflow if dart*rate exceeds ~10^14
+        #     uint256 tab = mul(due, milk.chop) / WAD;
+        #     Dirt = add(Dirt, tab);
+        #     ilks[ilk].dirt = add(milk.dirt, tab);
 
-        emit Bark(ilk, urn, dink, dart, due, milk.clip, id);
-    }
+        #     id = ClipperLike(milk.clip).kick({
+        #         tab: tab,
+        #         lot: dink,
+        #         usr: urn,
+        #         kpr: kpr
+        #     });
+        # }
 
-    function digs(bytes32 ilk, uint256 rad) external auth {
-        Dirt = sub(Dirt, rad);
-        ilks[ilk].dirt = sub(ilks[ilk].dirt, rad);
-        emit Digs(ilk, rad);
-    }
-
-    function cage() external auth {
-        live = 0;
-        emit Cage();
-    }
-}
+        # emit Bark(ilk, urn, dink, dart, due, milk.clip, id);
+        pass
