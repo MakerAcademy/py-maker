@@ -141,11 +141,26 @@ class Bank:
         if not (dink > 0): return
         if not (dart <= 2**255 and dink <= 2**255)
 
-
+        
 
         # vat.grab(
         #     ilk, urn, milk.clip, address(vow), -int256(dink), -int256(dart)
         # );
+        # // --- CDP Confiscation ---
+#     function grab(bytes32 i, address u, address v, address w, int dink, int dart) external auth {
+#         Urn storage urn = urns[i][u];
+#         Ilk storage ilk = ilks[i];
+
+#         urn.ink = _add(urn.ink, dink);
+#         urn.art = _add(urn.art, dart);
+#         ilk.Art = _add(ilk.Art, dart);
+
+#         int dtab = _mul(ilk.rate, dart);
+
+#         gem[i][v] = _sub(gem[i][v], dink);
+#         sin[w]    = _sub(sin[w],    dtab);
+#         vice      = _sub(vice,      dtab);
+#     }
 
         # uint256 due = mul(dart, rate);
         # vow.fess(due);
