@@ -40,7 +40,7 @@ class SurplusAuctionHouse:
             self.auction_expiry = param_value
         else:
             print('Invalid parameter name')
-    
+
     def start_surplus_auction(self, dai_bounty, bid, bidder):
         assert self.live
         self.current_dai += dai_bounty

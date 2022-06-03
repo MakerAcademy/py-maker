@@ -52,7 +52,7 @@ class Bank:
 
     @staticmethod
     def debt_has_decreased(delta_debt_amt):
-        return delta_debt_amt < 0
+        return delta_debt_amt <= 0
 
     def below_max_debt(self, delta_debt_amt, collateral_info):
         below_max_debt_per_collateral = (collateral_info.total_debt_amt +
