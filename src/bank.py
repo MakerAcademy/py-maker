@@ -51,63 +51,60 @@ class Bank:
         self.amt_active_auction_debt = 0
 
     @staticmethod
-    def debt_has_increased(delta_debt_amt):
-        return delta_debt_amt > 0
+    def debt_has_decreased(delta_debt_amt):
+        return delta_debt_amt < 0
 
-    def above_max_debt(self, delta_debt_amt, collateral_info):
-        above_max_debt_per_collateral = (collateral_info.total_debt_amt +
-                                         delta_debt_amt) * collateral_info.interest_rate > collateral_info.max_debt_amt
-        above_max_system_debt = self.total_debt_issued + (delta_debt_amt * collateral_info.interest_rate) \
-            < collateral_info.max_debt_amt
-        return above_max_debt_per_collateral or above_max_system_debt
+    def below_max_debt(self, delta_debt_amt, collateral_info):
+        below_max_debt_per_collateral = (collateral_info.total_debt_amt +
+                                         delta_debt_amt) * collateral_info.interest_rate <= collateral_info.max_debt_amt
+        below_max_system_debt = self.total_debt_issued + (delta_debt_amt * collateral_info.interest_rate) \
+            <= collateral_info.max_debt_amt # change this to system max debt
+        return below_max_debt_per_collateral and below_max_system_debt
 
     @staticmethod
-    def unacceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan):
-        removed_collateral_added_debt = delta_collateral_amt > 0 > delta_debt_amt
+    def acceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan):
+        added_collateral_removed_debt = delta_collateral_amt >= 0 >= delta_debt_amt
         users_tab = (loan.debt_amt + delta_debt_amt) * collateral_info.interest_rate
-        user_took_out_too_much = users_tab >= (loan.collateral_amt +
-                                               delta_collateral_amt) * collateral_info.safe_spot_price
-        return removed_collateral_added_debt and user_took_out_too_much
+        tab_is_safe = users_tab <= (loan.collateral_amt +
+                                    delta_collateral_amt) * collateral_info.safe_spot_price
+        return added_collateral_removed_debt or tab_is_safe
 
-    def sender_being_malicious(self, sender, user, delta_debt_amt, delta_collateral_amt):
-        unapproved_modifier = self.approved_loan_modifiers[sender][user] == 1
-        removed_collateral_added_debt = delta_debt_amt >= 0 >= delta_collateral_amt
-        return unapproved_modifier and removed_collateral_added_debt
+    def sender_not_malicious(self, sender, user, delta_debt_amt, delta_collateral_amt):
+        approved_modifier = self.approved_loan_modifiers[sender][user]
+        added_collateral_removed_debt = delta_collateral_amt >= 0 >= delta_debt_amt
+        return approved_modifier or added_collateral_removed_debt
+
+    def sender_consent(self, user, sender, delta_collateral_amt):
+        return delta_collateral_amt <= 0 or self.approved_loan_modifiers[sender][user]
+
+    def loan_user_consent(self, sender, delta_debt_amt):
+        return delta_debt_amt >= 0 or self.approved_loan_modifiers[sender][sender]
 
     @staticmethod
-    def miniscule_loan(loan, delta_debt_amt, collateral_info):
+    def debt_safe_loan(loan, delta_debt_amt, collateral_info):
         new_debt_amt = loan.debt_amt + delta_debt_amt
-        return new_debt_amt != 0 and new_debt_amt * collateral_info.interest_rate <= collateral_info.min_debt_amt 
+        return new_debt_amt == 0 or new_debt_amt * collateral_info.interest_rate >= collateral_info.min_debt_amt
 
-    def sender_no_consent(self, user, sender, delta_collateral_amt):
-        return delta_collateral_amt <= 0 and not self.approved_loan_modifiers[sender][user]
-
-    def loan_user_no_consent(self, sender, delta_debt_amt):
-        return delta_debt_amt <= 0 and not self.approved_loan_modifiers[sender][sender]
-
-    def unacceptable_modification(self, delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user):
-        debt_amt_is_unsafe = self.debt_has_increased(delta_debt_amt) and \
-                             self.above_max_debt(delta_debt_amt, collateral_info)
-        user_has_unacceptable_loan = self.unacceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan)
-        sender_is_malicious = self.sender_being_malicious(sender, user, delta_debt_amt, delta_collateral_amt)
-        sender_doesnt_consent = self.sender_no_consent(user, sender, delta_collateral_amt)
-        loan_user_doesnt_consent = self.loan_user_no_consent(sender, delta_debt_amt)
-        loan_isnt_miniscule = self.miniscule_loan(loan, delta_debt_amt, collateral_info)
-        return debt_amt_is_unsafe or sender_is_malicious or user_has_unacceptable_loan or sender_doesnt_consent \
-            or loan_user_doesnt_consent or loan_isnt_miniscule or self.bank_is_closed
+    def acceptable_modification(self, delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user):
+        debt_amt_is_safe = self.debt_has_decreased(delta_debt_amt) or \
+                             self.below_max_debt(delta_debt_amt, collateral_info)
+        user_has_acceptable_loan = self.acceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan)
+        sender_not_malicious = self.sender_not_malicious(sender, user, delta_debt_amt, delta_collateral_amt)
+        sender_consent = self.sender_consent(user, sender, delta_collateral_amt)
+        loan_user_consent = self.loan_user_consent(sender, delta_debt_amt)
+        debt_safe_loan = self.debt_safe_loan(loan, delta_debt_amt, collateral_info)
+        return debt_amt_is_safe and sender_not_malicious and user_has_acceptable_loan and sender_consent \
+            and loan_user_consent and debt_safe_loan and (not self.bank_is_closed)
 
     def modify_loan(self, collateral_type, delta_collateral_amt, delta_debt_amt, user, sender):
         collateral_info = self.collateral_infos[collateral_type]
         loan = self.loans[collateral_type][user]
-
-        if self.unacceptable_modification(delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user):
-            return
-
-        loan.collateral_amt += delta_collateral_amt
-        loan.debt_amt += delta_debt_amt
-        collateral_info.total_debt_amt += delta_debt_amt
-        self.who_owns_collateral = self.who_owns_collateral[collateral_type][sender] - delta_collateral_amt
-        self.who_owns_debt = self.who_owns_debt[user] + (collateral_info.interest_rate * delta_debt_amt)
+        if self.acceptable_modification(delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user):
+            loan.collateral_amt += delta_collateral_amt
+            loan.debt_amt += delta_debt_amt
+            collateral_info.total_debt_amt += delta_debt_amt
+            self.who_owns_collateral[collateral_type][sender] = self.who_owns_collateral[collateral_type][sender] - delta_collateral_amt
+            self.who_owns_debt[user] = self.who_owns_debt[user] + (collateral_info.interest_rate * delta_debt_amt)
 
     #
     #

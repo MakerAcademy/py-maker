@@ -1,6 +1,7 @@
 import unittest
 from bank import Bank
 from bank import CollateralInfo
+from bank import Loan
 
 
 class TestStatics(unittest.TestCase):
@@ -8,10 +9,13 @@ class TestStatics(unittest.TestCase):
         self.assertTrue(Bank.debt_has_increased(0.5))
         self.assertFalse(Bank.debt_has_increased(-1))
         self.assertFalse(Bank.debt_has_increased(0))
-    collateral_info = CollateralInfo(1.0, 1.0, 2.0, 0.1, 0.01)
+
+
 
     def test_unacceptable_loan(self):
-            # self.assertTrue(Bank.unacceptable_loan(-0.1, ))
+        collateral_info = CollateralInfo(1.0, 1.0, 2.0, 0.1, 0.01)
+        loan = Loan(3.0, 1.0)
+        self.assertTrue(Bank.unacceptable_loan(-0.1, 0.1, collateral_info, loan))
 
 
 if __name__ == '__main__':
