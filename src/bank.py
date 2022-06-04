@@ -58,7 +58,7 @@ class Bank:
         below_max_debt_per_collateral = (collateral_info.total_debt_amt +
                                          delta_debt_amt) * collateral_info.interest_rate <= collateral_info.max_debt_amt
         below_max_system_debt = self.total_debt_issued + (delta_debt_amt * collateral_info.interest_rate) \
-            <= collateral_info.max_debt_amt # change this to system max debt
+            <= self.max_debt_amount
         return below_max_debt_per_collateral and below_max_system_debt
 
     @staticmethod
