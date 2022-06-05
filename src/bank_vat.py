@@ -1,3 +1,4 @@
+import copy
 from typing import Dict
 
 WAD = 10 ** 18
@@ -137,7 +138,7 @@ class Bank:
     # This method makes sure that the loan is getting less debt and more collateral (becoming a
     # smaller loan essentially), or the owner of the loan has consented for the sender to change
     # his balance.
-    # In dss, this method is equivalent to this require statement from the funciton frob
+    # In dss, this method is equivalent to this require statement from the function frob
     # require(either(both(dart <= 0, dink >= 0), wish(u, msg.sender)), "Vat/not-allowed-u");
     def sender_not_malicious(self, sender, user, delta_debt_amt, delta_collateral_amt):
         # In dss, this is equivalent to wish(u, msg.sender)
@@ -146,17 +147,17 @@ class Bank:
         added_collateral_removed_debt = delta_collateral_amt >= 0 >= delta_debt_amt
         return approved_modifier or added_collateral_removed_debt
 
-    # In dss, this method is equivalent to this require statement from the funciton frob
+    # In dss, this method is equivalent to this require statement from the function frob
     # require(either(dink <= 0, wish(v, msg.sender)), "Vat/not-allowed-v");
     def sender_consent(self, user, sender, delta_collateral_amt):
         return delta_collateral_amt <= 0 or self.approved_loan_modifiers[sender][user]
 
-    # In dss, this method is equivalent to this require statement from the funciton frob
+    # In dss, this method is equivalent to this require statement from the function frob
     # require(either(dart >= 0, wish(w, msg.sender)), "Vat/not-allowed-w");
     def loan_user_consent(self, sender, delta_debt_amt):
         return delta_debt_amt >= 0 or self.approved_loan_modifiers[sender][sender]
 
-    # In dss, this method is equivalent to this require statement from the funciton frob
+    # In dss, this method is equivalent to this require statement from the function frob
     # require(either(urn.art == 0, tab >= ilk.dust), "Vat/dust");
     @staticmethod
     def debt_safe_loan(loan, delta_debt_amt, collateral_info):
@@ -203,7 +204,75 @@ class Bank:
 
 
 
+    # @staticmethod
+    # def loan_is_acceptable(collateral_info, loan):
+    #     collateral_is_worthless = collateral_info.safe_spot_price < 0
+    #     loan_is_collateralized = loan.collateral_amt * collateral_info.safe_spot_price > \
+    #         loan.debt_amt * collateral_info.interest_rate
+    #     return collateral_is_worthless or loan_is_collateralized
+    #
+    # def too_much_auction_debt(self, collateral_info):
+    #     a = self.max_active_auction_debt < self.amt_active_auction_debt
+    #     b = collateral_info.max_active_aution_debt < collateral_info.amt_active_aution_debt
+    #     return a or b
+    #
+    # def inappropriate_time_to_liquidate(self, collateral_info, loan):
+    #     loan_is_safe = self.loan_is_acceptable(collateral_info, loan)
+    #     too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
+    #     return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
+
+    # In dss, this is equivalent to this require statement in fork
+    # require(both(wish(src, msg.sender), wish(dst, msg.sender)), "Vat/not-allowed");
+    def modify_collateral(self, user, collateral_type, delta_collateral_amount):
+        self.who_owns_collateral[collateral_type][user] = \
+            self.who_owns_collateral[collateral_type][user] + delta_collateral_amount
+
+    def transfer_collateral(self, collateral_type, sender, receiver, delta_collateral_amount):
+        if self.approved_loan_modifiers[sender][receiver]:
+            self.who_owns_collateral[collateral_type][sender] -= delta_collateral_amount
+            self.who_owns_collateral[collateral_type][receiver] += delta_collateral_amount
+
+    def transfer_debt(self, sender, receiver, delta_debt_amount):
+        if self.approved_loan_modifiers[sender][receiver]:
+            self.who_owns_debt[sender] -= delta_debt_amount
+            self.who_owns_debt[receiver] += delta_debt_amount
+
+    def sender_and_receiver_consent(self, sender, receiver):
+        return self.approved_loan_modifiers[sender][receiver] and self.approved_loan_modifiers[receiver][sender]
+
+    @staticmethod
+    def both_sides_safe(sender_tab, receiver_tab, sender_collateral_amount, receiver_collateral_amount, spot_price):
+        sender_safe = sender_tab <= sender_collateral_amount * spot_price
+        receiver_safe = receiver_tab <= receiver_collateral_amount * spot_price
+        return sender_safe and receiver_safe
+
+    @staticmethod
+    def check_minimum_debt(sender_tab, receiver_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
+        sender_not_dusty = sender_tab >= minimum_debt or sender_debt_amount == 0
+        receiver_not_dusty = receiver_tab >= minimum_debt or receiver_debt_amount == 0
+        return sender_not_dusty and receiver_not_dusty
+
+    def split_loan(self, sender, receiver, collateral_type, delta_debt_amount, delta_collateral_amount):
+        sender_loan = self.loans[collateral_type][sender]
+        receiver_loan = self.loans[collateral_type][receiver]
+        collateral_info = self.collateral_infos[collateral_type]
+        sender_collateral = sender_loan.collateral_amt - delta_collateral_amount
+        sender_debt = sender_loan.debt_amt - delta_debt_amount
+        receiver_collateral = receiver_loan.collateral_amt + delta_collateral_amount
+        receiver_debt = receiver_loan.debt_amt + delta_debt_amount
+        sender_tab = sender_debt * collateral_info.interest_rate
+        receiver_tab = receiver_debt * collateral_info.interest_rate
+        consent = self.sender_and_receiver_consent(sender, receiver)
+        safe = self.both_sides_safe(sender_tab, receiver_tab, sender_collateral, receiver_collateral,
+                                    collateral_info.safe_spot_price)
+        minimum_achieved = self.check_minimum_debt(sender_tab, receiver_tab, collateral_info.min_debt_amt, sender_debt,
+                                                   receiver_debt)
+        if consent and safe and minimum_achieved:
+            self.loans[collateral_type][sender].collateral_amt = sender_collateral
+            self.loans[collateral_type][sender].debt_amt = sender_debt
+            self.loans[collateral_type][receiver].collateral_amt = receiver_collateral
+            self.loans[collateral_type][receiver].debt_amt = receiver_debt
 
 
 
