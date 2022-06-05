@@ -222,8 +222,7 @@ class Bank:
     #     return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
 
-    # In dss, this is equivalent to this require statement in fork
-    # require(both(wish(src, msg.sender), wish(dst, msg.sender)), "Vat/not-allowed");
+
     def modify_collateral(self, user, collateral_type, delta_collateral_amount):
         self.who_owns_collateral[collateral_type][user] = \
             self.who_owns_collateral[collateral_type][user] + delta_collateral_amount
@@ -238,15 +237,23 @@ class Bank:
             self.who_owns_debt[sender] -= delta_debt_amount
             self.who_owns_debt[receiver] += delta_debt_amount
 
+    # In dss, this is equivalent to this require statement in the fork function
+    # require(both(wish(src, msg.sender), wish(dst, msg.sender)), "Vat/not-allowed");
     def sender_and_receiver_consent(self, sender, receiver):
         return self.approved_loan_modifiers[sender][receiver] and self.approved_loan_modifiers[receiver][sender]
 
+    # In dss, this is equivalent to this require statement in the fork function
+    # require(utab <= _mul(u.ink, i.spot), "Vat/not-safe-src");
+    # require(vtab <= _mul(v.ink, i.spot), "Vat/not-safe-dst");
     @staticmethod
     def both_sides_safe(sender_tab, receiver_tab, sender_collateral_amount, receiver_collateral_amount, spot_price):
         sender_safe = sender_tab <= sender_collateral_amount * spot_price
         receiver_safe = receiver_tab <= receiver_collateral_amount * spot_price
         return sender_safe and receiver_safe
 
+    # In dss, this is equivalent to this require statement in the fork function
+    # require(either(utab >= i.dust, u.art == 0), "Vat/dust-src");
+    # require(either(vtab >= i.dust, v.art == 0), "Vat/dust-dst");
     @staticmethod
     def check_minimum_debt(sender_tab, receiver_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
         sender_not_dusty = sender_tab >= minimum_debt or sender_debt_amount == 0
