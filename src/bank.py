@@ -11,7 +11,7 @@ class Loan:
     # from the bank (debt_amt). These loans will always be
     # over-collateralized: the collateral_amt should always be
     # more than the debt_amt.
-    def __init__(self, collateral_amt : float, debt_amt : float):
+    def __init__(self, collateral_amt: float, debt_amt: float):
         # In dss, collateral_amt = ink
         self.collateral_amt = collateral_amt
         # In dss, debt_amt = art
@@ -26,8 +26,8 @@ class CollateralInfo:
     # the maximum debt that can be taken out against this particular
     # collateral type, and the interest rate for taking loans out
     # on this particular collateral type.
-    def __init__(self, safe_spot_price : float, total_debt_amt : float,
-                 max_debt_amt : float, min_debt_amt : float, interest_rate : float):
+    def __init__(self, safe_spot_price: float, total_debt_amt: float,
+                 max_debt_amt: float, min_debt_amt: float, interest_rate: float):
         # In dss, safe_spot_price = spot
         self.safe_spot_price = safe_spot_price
         # In dss, total_debt_amt = Art
@@ -42,25 +42,25 @@ class CollateralInfo:
 # Ticker represents the ticker of a certain collateral type, "ETH" for example
 # In dss, ticker = bytes32 (kind of)
 class Ticker:
-    def __init__(self, tick : str):
+    def __init__(self, tick: str):
         self.tick = tick
 
 # User just represents the name of a user
 # In dss, user = address (kind of)
 class User:
-    def __init__(self, name : str):
+    def __init__(self, name: str):
         self.name = name
 
 # In the dss, Bank = Vat
 class Bank:
     
-    def __init__(self, loans : Dict[Ticker, Dict[User, Loan]],
-                 collateral_infos : Dict[Ticker, CollateralInfo],
-                 bank_is_open : bool, total_debt_issued : float,
-                 max_debt_amount : float,
-                 approved_loan_modifiers : Dict[User, Dict[User, bool]],
-                 who_owns_collateral : Dict[Ticker, Dict[User, float]],
-                 who_owns_debt : Dict[User, float]):
+    def __init__(self, loans: Dict[Ticker, Dict[User, Loan]],
+                 collateral_infos: Dict[Ticker, CollateralInfo],
+                 bank_is_open: bool, total_debt_issued : float,
+                 max_debt_amount: float,
+                 approved_loan_modifiers: Dict[User, Dict[User, bool]],
+                 who_owns_collateral: Dict[Ticker, Dict[User, float]],
+                 who_owns_debt: Dict[User, float]):
         # A nested dictionary that maps the ticker of the collateral type ("Eth" for example)
         # to a dictionary of loans per user for that collateral type.
         # ticker of collateral type [Ticker] -> name of user [User] -> Loan object [Loan]
@@ -95,13 +95,18 @@ class Bank:
         # In the dss, who_owns_debt = dai
         self.who_owns_debt = who_owns_debt
 
+    # This method checks whether the debt has decreased (the delta - change in - debt
+    # is negative)
     @staticmethod
-    def debt_has_decreased(delta_debt_amt):
+    def debt_has_decreased(delta_debt_amt: float) -> bool:
         return delta_debt_amt <= 0
 
-    def below_max_debt(self, delta_debt_amt, collateral_info):
+    # This method checks whether
+    def below_max_debt(self, delta_debt_amt: float, collateral_info: CollateralInfo):
+        #
         below_max_debt_per_collateral = (collateral_info.total_debt_amt +
                                          delta_debt_amt) * collateral_info.interest_rate <= collateral_info.max_debt_amt
+        #
         below_max_system_debt = self.total_debt_issued + (delta_debt_amt * collateral_info.interest_rate) \
             <= self.max_debt_amount
         return below_max_debt_per_collateral and below_max_system_debt
