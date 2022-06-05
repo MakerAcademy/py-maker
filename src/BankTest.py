@@ -1,7 +1,7 @@
 import unittest
-from bank import Bank
-from bank import CollateralInfo
-from bank import Loan
+from bank_vat import Bank
+from bank_vat import CollateralInfo
+from bank_vat import Loan
 
 
 class TestStatics(unittest.TestCase):

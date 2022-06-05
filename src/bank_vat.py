@@ -101,40 +101,69 @@ class Bank:
     def debt_has_decreased(delta_debt_amt: float) -> bool:
         return delta_debt_amt <= 0
 
-    # This method checks whether
-    def below_max_debt(self, delta_debt_amt: float, collateral_info: CollateralInfo):
-        #
+    # This method checks whether the change in debt (delta_debt_amt) ensures that the debt
+    # for that specific collateral type has not reached the max and that the bank's total debt
+    # has not reached the max.
+    # In the dss, this function is basically equivalent to the following require statement from the frob function
+    # require(either(dart <= 0, both(_mul(ilk.Art, ilk.rate) <= ilk.line, debt <= Line)), "Vat/ceiling-exceeded");
+    def below_max_debt(self, delta_debt_amt: float, collateral_info: CollateralInfo) -> bool:
+        # In dss, equivalent to ilk.Art = _add(ilk.Art, dart) and then
+        # _mul(ilk.Art, ilk.rate) <= ilk.line
         below_max_debt_per_collateral = (collateral_info.total_debt_amt +
                                          delta_debt_amt) * collateral_info.interest_rate <= collateral_info.max_debt_amt
-        #
+        # In dss, equivalent to int dtab = _mul(ilk.rate, dart); and then
+        # debt = _add(debt, dtab); and then debt <= Line
         below_max_system_debt = self.total_debt_issued + (delta_debt_amt * collateral_info.interest_rate) \
             <= self.max_debt_amount
         return below_max_debt_per_collateral and below_max_system_debt
 
+    # This method checks whether a user of a loan either removed debt (meaning he owes less)
+    # or whether the debt he added + interest is still less than the price of the collateral in USD.
+    # In dss, it is equivalent to this require statement from the function frob
+    # require(either(both(dart <= 0, dink >= 0), tab <= _mul(urn.ink, ilk.spot)), "Vat/not-safe");
     @staticmethod
     def acceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan):
+        # In dss, this is equivalent to both(dart <= 0, dink >= 0)
         added_collateral_removed_debt = delta_collateral_amt >= 0 >= delta_debt_amt
+        # In dss, this is equivalent to urn.art = _add(urn.art, dart); and then
+        # uint tab = _mul(ilk.rate, urn.art);
         users_tab = (loan.debt_amt + delta_debt_amt) * collateral_info.interest_rate
+        # In dss, this is equivalent to urn.art = _add(urn.art, dart); and then
+        # uint tab = _mul(ilk.rate, urn.art); and then tab <= _mul(urn.ink, ilk.spot)
         tab_is_safe = users_tab <= (loan.collateral_amt +
                                     delta_collateral_amt) * collateral_info.safe_spot_price
         return added_collateral_removed_debt or tab_is_safe
 
+    # This method makes sure that the loan is getting less debt and more collateral (becoming a
+    # smaller loan essentially), or the owner of the loan has consented for the sender to change
+    # his balance.
+    # In dss, this method is equivalent to this require statement from the funciton frob
+    # require(either(both(dart <= 0, dink >= 0), wish(u, msg.sender)), "Vat/not-allowed-u");
     def sender_not_malicious(self, sender, user, delta_debt_amt, delta_collateral_amt):
+        # In dss, this is equivalent to wish(u, msg.sender)
         approved_modifier = self.approved_loan_modifiers[sender][user]
+        # In dss, this is equivalent to both(dart <= 0, dink >= 0)
         added_collateral_removed_debt = delta_collateral_amt >= 0 >= delta_debt_amt
         return approved_modifier or added_collateral_removed_debt
 
+    # In dss, this method is equivalent to this require statement from the funciton frob
+    # require(either(dink <= 0, wish(v, msg.sender)), "Vat/not-allowed-v");
     def sender_consent(self, user, sender, delta_collateral_amt):
         return delta_collateral_amt <= 0 or self.approved_loan_modifiers[sender][user]
 
+    # In dss, this method is equivalent to this require statement from the funciton frob
+    # require(either(dart >= 0, wish(w, msg.sender)), "Vat/not-allowed-w");
     def loan_user_consent(self, sender, delta_debt_amt):
         return delta_debt_amt >= 0 or self.approved_loan_modifiers[sender][sender]
 
+    # In dss, this method is equivalent to this require statement from the funciton frob
+    # require(either(urn.art == 0, tab >= ilk.dust), "Vat/dust");
     @staticmethod
     def debt_safe_loan(loan, delta_debt_amt, collateral_info):
         new_debt_amt = loan.debt_amt + delta_debt_amt
         return new_debt_amt == 0 or new_debt_amt * collateral_info.interest_rate >= collateral_info.min_debt_amt
 
+    # This method is essentially all require statements from frob in dss grouped up into one function
     def acceptable_modification(self, delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user):
         debt_amt_is_safe = self.debt_has_decreased(delta_debt_amt) or \
                              self.below_max_debt(delta_debt_amt, collateral_info)
@@ -146,34 +175,57 @@ class Bank:
         return debt_amt_is_safe and sender_not_malicious and user_has_acceptable_loan and sender_consent \
             and loan_user_consent and debt_safe_loan and self.bank_is_open
 
+    # In dss, this method is equivalent to frob
     def modify_loan(self, collateral_type, delta_collateral_amt, delta_debt_amt, user, sender):
+        # In dss, this is equivalent to Ilk memory ilk = ilks[i];
         collateral_info = self.collateral_infos[collateral_type]
+        # In dss, this is equivalent to Urn memory urn = urns[i][u];
         loan = self.loans[collateral_type][user]
+        # this if statement basically ensures that all require statements within frob pass before moving along
         if self.acceptable_modification(delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user):
+            # In dss, this is equivalent to urn.ink = _add(urn.ink, dink);
             loan.collateral_amt += delta_collateral_amt
+            # In dss, this is equivalent to urn.art = _add(urn.art, dart);
             loan.debt_amt += delta_debt_amt
+            # In dss, this is equivalent to ilk.Art = _add(ilk.Art, dart);
             collateral_info.total_debt_amt += delta_debt_amt
+            # In dss, this is equivalent to gem[i][v] = _sub(gem[i][v], dink);
             self.who_owns_collateral[collateral_type][sender] = self.who_owns_collateral[collateral_type][sender] - delta_collateral_amt
+            # In dss, this is equivalent to dai[w]    = _add(dai[w],    dtab);
             self.who_owns_debt[user] = self.who_owns_debt[user] + (collateral_info.interest_rate * delta_debt_amt)
+            # In dss, this is equivalent to
+            self.collateral_infos[collateral_type] = collateral_info
+            # In dss, this is equivalent to urns[i][u] = urn;
+            self.loans[collateral_type][user] = loan
+            # In dss, this is equivalent to ilks[i]    = ilk;
 
-    @staticmethod
-    def loan_is_acceptable(collateral_info, loan):
-        collateral_is_worthless = collateral_info.safe_spot_price < 0
-        loan_is_collateralized = loan.collateral_amt * collateral_info.safe_spot_price > \
-            loan.debt_amt * collateral_info.interest_rate
-        return collateral_is_worthless or loan_is_collateralized
 
-    def too_much_auction_debt(self, collateral_info):
-        a = self.max_active_auction_debt < self.amt_active_auction_debt
-        b = collateral_info.max_active_aution_debt < collateral_info.amt_active_aution_debt
-        return a or b
 
-    def inappropriate_time_to_liquidate(self, collateral_info, loan):
-        loan_is_safe = self.loan_is_acceptable(collateral_info, loan)
-        too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
-        return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
-    def change_collateral_rate(self, collateral_type, u, new_rate):
-        if self.bank_is_open:
-            self.collateral_infos[collateral_type]
-        pass
+
+
+
+
+
+
+    # @staticmethod
+    # def loan_is_acceptable(collateral_info, loan):
+    #     collateral_is_worthless = collateral_info.safe_spot_price < 0
+    #     loan_is_collateralized = loan.collateral_amt * collateral_info.safe_spot_price > \
+    #         loan.debt_amt * collateral_info.interest_rate
+    #     return collateral_is_worthless or loan_is_collateralized
+    #
+    # def too_much_auction_debt(self, collateral_info):
+    #     a = self.max_active_auction_debt < self.amt_active_auction_debt
+    #     b = collateral_info.max_active_aution_debt < collateral_info.amt_active_aution_debt
+    #     return a or b
+    #
+    # def inappropriate_time_to_liquidate(self, collateral_info, loan):
+    #     loan_is_safe = self.loan_is_acceptable(collateral_info, loan)
+    #     too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
+    #     return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
+    #
+    # def change_collateral_rate(self, collateral_type, u, new_rate):
+    #     if self.bank_is_open:
+    #         self.collateral_infos[collateral_type]
+    #     pass
