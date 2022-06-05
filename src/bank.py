@@ -129,6 +129,35 @@ class Bank:
         too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
         return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
+    def modify_collateral(self, user, collateral_type, delta_collateral_amount):
+        self.who_owns_collateral[collateral_type][user] = \
+            self.who_owns_collateral[collateral_type][user] + delta_collateral_amount
+
+    def transfer_collateral(self, collateral_type, sender, receiver, delta_collateral_amount):
+        if self.approved_loan_modifiers[sender][receiver]:
+            self.who_owns_collateral[collateral_type][sender] -= delta_collateral_amount
+            self.who_owns_collateral[collateral_type][receiver] += delta_collateral_amount
+
+    def transfer_debt(self, sender, receiver, delta_debt_amount):
+        if self.approved_loan_modifiers[sender][receiver]:
+            self.who_owns_debt[sender] -= delta_debt_amount
+            self.who_owns_debt[receiver] += delta_debt_amount
+
+    def sender_and_receiver_consent(self, sender, receiver):
+        return self.approved_loan_modifiers[sender][receiver] and self.approved_loan_modifiers[receiver][sender]
+
+    @staticmethod
+    def both_sides_safe(sender_tab, receiver_tab, sender_collateral_amount, receiver_collateral_amount, spot_price):
+        sender_safe = sender_tab <= sender_collateral_amount * spot_price
+        receiver_safe = receiver_tab <= receiver_collateral_amount * spot_price
+        return sender_safe and receiver_safe
+
+    def check_minimum_debt(self, sender_tab, receiver_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
+        sender_not_dusty = sender_tab >= minimum_debt or sender_debt_amount == 0
+        receiver_not_dusty = receiver_tab >= minimum_debt or receiver_debt_amount == 0
+        return sender_not_dusty and receiver_not_dusty
+
+
     # def liquidate(self, collateral_type, user):
     #     loan = self.loans[collateral_type][user]
     #     collateral_info = self.collateral_infos[collateral_type]
