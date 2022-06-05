@@ -1,3 +1,4 @@
+import copy
 from typing import Dict
 
 WAD = 10 ** 18
@@ -156,23 +157,22 @@ class Bank:
             self.who_owns_collateral[collateral_type][sender] = self.who_owns_collateral[collateral_type][sender] - delta_collateral_amt
             self.who_owns_debt[user] = self.who_owns_debt[user] + (collateral_info.interest_rate * delta_debt_amt)
 
-    @staticmethod
-    def loan_is_acceptable(collateral_info, loan):
-        collateral_is_worthless = collateral_info.safe_spot_price < 0
-        loan_is_collateralized = loan.collateral_amt * collateral_info.safe_spot_price > \
-            loan.debt_amt * collateral_info.interest_rate
-        return collateral_is_worthless or loan_is_collateralized
-
-    def too_much_auction_debt(self, collateral_info):
-        a = self.max_active_auction_debt < self.amt_active_auction_debt
-        b = collateral_info.max_active_aution_debt < collateral_info.amt_active_aution_debt
-        return a or b
-
-    def inappropriate_time_to_liquidate(self, collateral_info, loan):
-        loan_is_safe = self.loan_is_acceptable(collateral_info, loan)
-        too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
-        return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
-
+    # @staticmethod
+    # def loan_is_acceptable(collateral_info, loan):
+    #     collateral_is_worthless = collateral_info.safe_spot_price < 0
+    #     loan_is_collateralized = loan.collateral_amt * collateral_info.safe_spot_price > \
+    #         loan.debt_amt * collateral_info.interest_rate
+    #     return collateral_is_worthless or loan_is_collateralized
+    #
+    # def too_much_auction_debt(self, collateral_info):
+    #     a = self.max_active_auction_debt < self.amt_active_auction_debt
+    #     b = collateral_info.max_active_aution_debt < collateral_info.amt_active_aution_debt
+    #     return a or b
+    #
+    # def inappropriate_time_to_liquidate(self, collateral_info, loan):
+    #     loan_is_safe = self.loan_is_acceptable(collateral_info, loan)
+    #     too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
+    #     return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
     def modify_collateral(self, user, collateral_type, delta_collateral_amount):
         self.who_owns_collateral[collateral_type][user] = \
@@ -197,10 +197,33 @@ class Bank:
         receiver_safe = receiver_tab <= receiver_collateral_amount * spot_price
         return sender_safe and receiver_safe
 
-    def check_minimum_debt(self, sender_tab, receiver_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
+    @staticmethod
+    def check_minimum_debt(sender_tab, receiver_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
         sender_not_dusty = sender_tab >= minimum_debt or sender_debt_amount == 0
         receiver_not_dusty = receiver_tab >= minimum_debt or receiver_debt_amount == 0
         return sender_not_dusty and receiver_not_dusty
+
+    def split_loan(self, sender, receiver, collateral_type, delta_debt_amount, delta_collateral_amount):
+        sender_loan = self.loans[collateral_type][sender]
+        receiver_loan = self.loans[collateral_type][receiver]
+        collateral_info = self.collateral_infos[collateral_type]
+        sender_collateral = sender_loan.collateral_amt - delta_collateral_amount
+        sender_debt = sender_loan.debt_amt - delta_debt_amount
+        receiver_collateral = receiver_loan.collateral_amt + delta_collateral_amount
+        receiver_debt = receiver_loan.debt_amt + delta_debt_amount
+        sender_tab = sender_debt * collateral_info.interest_rate
+        receiver_tab = receiver_debt * collateral_info.interest_rate
+        consent = self.sender_and_receiver_consent(sender, receiver)
+        safe = self.both_sides_safe(sender_tab, receiver_tab, sender_collateral, receiver_collateral,
+                                    collateral_info.safe_spot_price)
+        minimum_achieved = self.check_minimum_debt(sender_tab, receiver_tab, collateral_info.min_debt_amt, sender_debt,
+                                                   receiver_debt)
+        if consent and safe and minimum_achieved:
+            self.loans[collateral_type][sender].collateral_amt = sender_collateral
+            self.loans[collateral_type][sender].debt_amt = sender_debt
+            self.loans[collateral_type][receiver].collateral_amt = receiver_collateral
+            self.loans[collateral_type][receiver].debt_amt = receiver_debt
+
 
 
     # def liquidate(self, collateral_type, user):
@@ -269,5 +292,3 @@ class Bank:
         if self.bank_is_open:
             self.collateral_infos[collateral_type]
         pass
-
-    # let me push
