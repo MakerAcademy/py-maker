@@ -4,18 +4,20 @@ WAD = 10 ** 18
 
 # vat.sol
 
-
+# In dss, Loan = Urn
 class Loan:
     # When a user creates a loan, they will put up a certain
     # amount of collateral (collateral_amt), and then take money
     # from the bank (debt_amt). These loans will always be
     # over-collateralized: the collateral_amt should always be
     # more than the debt_amt.
-    def __init__(self, collateral_amt, debt_amt):
+    def __init__(self, collateral_amt : float, debt_amt : float):
+        # In dss, collateral_amt = ink
         self.collateral_amt = collateral_amt
+        # In dss, debt_amt = art
         self.debt_amt = debt_amt
 
-
+# In dss, CollateralInfo = Ilk
 class CollateralInfo:
     # CollateralInfo will keep track of different metrics about a
     # certain collateral type. For example, the spot price of the
@@ -24,16 +26,18 @@ class CollateralInfo:
     # the maximum debt that can be taken out against this particular
     # collateral type, and the interest rate for taking loans out
     # on this particular collateral type.
-    def __init__(self, safe_spot_price, total_debt_amt,
-                 max_debt_amt, min_debt_amt, interest_rate):
+    def __init__(self, safe_spot_price : float, total_debt_amt : float,
+                 max_debt_amt : float, min_debt_amt : float, interest_rate : float):
+        # In dss, safe_spot_price = spot
         self.safe_spot_price = safe_spot_price
+        # In dss, total_debt_amt = Art
         self.total_debt_amt = total_debt_amt
+        # In dss, max_debt_amt = line
         self.max_debt_amt = max_debt_amt
+        # In dss, min_debt_amt = dust
         self.min_debt_amt = min_debt_amt
+        # In dss, interest_rate = rate
         self.interest_rate = interest_rate
-        self.max_active_auction_debt = 0
-        self.amt_active_auction_debt = 0
-        self.liquidation_penalty = 0
 
 # Ticker represents the ticker of a certain collateral type, "ETH" for example
 # In dss, ticker = bytes32 (kind of)
