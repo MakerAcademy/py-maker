@@ -2,24 +2,47 @@ import unittest
 from bank_vat import Bank
 from bank_vat import CollateralInfo
 from bank_vat import Loan
-
+from bank_vat import User
+from bank_vat import Ticker
 
 class TestStatics(unittest.TestCase):
     def test_debt_has_decreased(self):
-        self.assertTrue(Bank.debt_has_decreased(-0.5))
-        self.assertFalse(Bank.debt_has_decreased(1))
-        self.assertTrue(Bank.debt_has_decreased(0))
+        self.assertTrue(Bank.debt_has_decreased(delta_debt_amt=-0.5))
+        self.assertFalse(Bank.debt_has_decreased(delta_debt_amt=1))
+        self.assertTrue(Bank.debt_has_decreased(delta_debt_amt=0))
 
     def test_acceptable_loan(self):
-        collateral_info = CollateralInfo(1.0, 1.0, 2.0, 0.1, 1.0)
-        loan = Loan(3.0, 1.0)
-        self.assertTrue(Bank.acceptable_loan(-0.1, 0.1, collateral_info, loan))
-        loan = Loan(3.0, 100.0)
-        self.assertFalse(Bank.acceptable_loan(0.1, 0.1, collateral_info, loan))
-        self.assertFalse(Bank.acceptable_loan(-0.1, -0.1, collateral_info, loan))
-        self.assertTrue(Bank.acceptable_loan(0, 0, collateral_info, loan))
-        loan = Loan(3.0, 1.0)
-        self.assertTrue(Bank.acceptable_loan(1.0, 1.0, collateral_info, loan))
+        collateral_info = CollateralInfo(
+            safe_spot_price=20,
+            total_debt_amt=0,
+            max_debt_amt=1000,
+            min_debt_amt=0.001,
+            interest_rate=0.1
+        )
+        loan1 = Loan(
+            collateral_amt=30,
+            debt_amt=10)
+        self.assertTrue(Bank.acceptable_loan(
+            delta_debt_amt=-10,
+            delta_collateral_amt=10,
+            collateral_info=collateral_info,
+            loan=loan1
+        ))
+        loan2 = Loan(
+            collateral_amt=100,
+            debt_amt=50)
+        self.assertFalse(Bank.acceptable_loan(
+            delta_debt_amt=10,
+            delta_collateral_amt=-50,
+            collateral_info=collateral_info,
+            loan=loan2
+        ))
+        self.assertTrue(Bank.acceptable_loan(
+            delta_debt_amt=0,
+            delta_collateral_amt=0,
+            collateral_info=collateral_info,
+            loan=loan2
+        ))
 
     def test_debt_safe_loan(self):
         collateral_info = CollateralInfo(1.0, 1.0, 2.0, 0.1, 0.2)
