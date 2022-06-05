@@ -168,6 +168,98 @@ class Bank:
         too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
         return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
+
+    def modify_collateral(self, user, collateral_type, delta_collateral_amount):
+        self.who_owns_collateral[collateral_type][user] = \
+            self.who_owns_collateral[collateral_type][user] + delta_collateral_amount
+
+    def transfer_collateral(self, collateral_type, sender, receiver, delta_collateral_amount):
+        if self.approved_loan_modifiers[sender][receiver]:
+            self.who_owns_collateral[collateral_type][sender] -= delta_collateral_amount
+            self.who_owns_collateral[collateral_type][receiver] += delta_collateral_amount
+
+    def transfer_debt(self, sender, receiver, delta_debt_amount):
+        if self.approved_loan_modifiers[sender][receiver]:
+            self.who_owns_debt[sender] -= delta_debt_amount
+            self.who_owns_debt[receiver] += delta_debt_amount
+
+    def sender_and_receiver_consent(self, sender, receiver):
+        return self.approved_loan_modifiers[sender][receiver] and self.approved_loan_modifiers[receiver][sender]
+
+    @staticmethod
+    def both_sides_safe(sender_tab, receiver_tab, sender_collateral_amount, receiver_collateral_amount, spot_price):
+        sender_safe = sender_tab <= sender_collateral_amount * spot_price
+        receiver_safe = receiver_tab <= receiver_collateral_amount * spot_price
+        return sender_safe and receiver_safe
+
+    def check_minimum_debt(self, sender_tab, receiver_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
+        sender_not_dusty = sender_tab >= minimum_debt or sender_debt_amount == 0
+        receiver_not_dusty = receiver_tab >= minimum_debt or receiver_debt_amount == 0
+        return sender_not_dusty and receiver_not_dusty
+
+
+    # def liquidate(self, collateral_type, user):
+    #     loan = self.loans[collateral_type][user]
+    #     collateral_info = self.collateral_infos[collateral_type]
+    #
+    #     if self.inappropriate_time_to_liquidate(collateral_info, loan):
+    #         return
+    #
+    #     max_amt_to_liquidate = min(self.max_active_auction_debt - self.amt_active_auction_debt,
+    #                                collateral_info.max_active_aution_debt - collateral_info.amt_active_aution_debt)
+    #     # ??????? below
+    #     dart = min(loan.debt_amt,
+    #                max_amt_to_liquidate * WAD / collateral_info.interest_rate / collateral_info.liquidation_penalty)
+    #
+    #     if loan.debt_amt > dart:
+    #         if (loan.debt_amt - dart) * collateral_info.interest_rate < collateral_info.dust:
+    #             dart = loan.debt_amt
+    #         elif not (dart * collateral_info.interest_rate >= collateral_info.dust):
+    #             "do something here"
+    #
+    #     dink = loan.collateral_amt * dart / loan.debt_amt
+    #     if not (dink > 0):
+    #         return
+    #     if not (dart <= 2**255 and dink <= 2**255):
+    #         "do something here"
+
+        # vat.grab(
+        #     ilk, urn, milk.clip, address(vow), -int256(dink), -int256(dart)
+        # );
+        # // --- CDP Confiscation ---
+#     function grab(bytes32 i, address u, address v, address w, int dink, int dart) external auth {
+#         Urn storage urn = urns[i][u];
+#         Ilk storage ilk = ilks[i];
+
+#         urn.ink = _add(urn.ink, dink);
+#         urn.art = _add(urn.art, dart);
+#         ilk.Art = _add(ilk.Art, dart);
+
+#         int dtab = _mul(ilk.rate, dart);
+
+#         gem[i][v] = _sub(gem[i][v], dink);
+#         sin[w]    = _sub(sin[w],    dtab);
+#         vice      = _sub(vice,      dtab);
+#     }
+
+        # uint256 due = mul(dart, rate);
+        # vow.fess(due);
+
+        # {   // Avoid stack too deep
+        #     // This calculation will overflow if dart*rate exceeds ~10^14
+        #     uint256 tab = mul(due, milk.chop) / WAD;
+        #     Dirt = add(Dirt, tab);
+        #     ilks[ilk].dirt = add(milk.dirt, tab);
+
+        #     id = ClipperLike(milk.clip).kick({
+        #         tab: tab,
+        #         lot: dink,
+        #         usr: urn,
+        #         kpr: kpr
+        #     });
+        # }
+
+        # emit Bark(ilk, urn, dink, dart, due, milk.clip, id);
     def change_collateral_rate(self, collateral_type, u, new_rate):
         if self.bank_is_open:
             self.collateral_infos[collateral_type]
