@@ -193,10 +193,11 @@ class Bank:
             self.who_owns_collateral[collateral_type][sender] = self.who_owns_collateral[collateral_type][sender] - delta_collateral_amt
             # In dss, this is equivalent to dai[w]    = _add(dai[w],    dtab);
             self.who_owns_debt[user] = self.who_owns_debt[user] + (collateral_info.interest_rate * delta_debt_amt)
+            # The below isn't needed because "=" copies by reference in python, not by value
             # In dss, this is equivalent to
-            self.collateral_infos[collateral_type] = collateral_info
+            # self.collateral_infos[collateral_type] = collateral_info
             # In dss, this is equivalent to urns[i][u] = urn;
-            self.loans[collateral_type][user] = loan
+            # self.loans[collateral_type][user] = loan
             # In dss, this is equivalent to ilks[i]    = ilk;
 
 
