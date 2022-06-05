@@ -151,12 +151,6 @@ class Bank:
             self.who_owns_collateral[collateral_type][sender] = self.who_owns_collateral[collateral_type][sender] - delta_collateral_amt
             self.who_owns_debt[user] = self.who_owns_debt[user] + (collateral_info.interest_rate * delta_debt_amt)
 
-    #
-    #
-    #
-    #
-    #
-
     @staticmethod
     def loan_is_acceptable(collateral_info, loan):
         collateral_is_worthless = collateral_info.safe_spot_price < 0
@@ -178,94 +172,3 @@ class Bank:
         if self.bank_is_open:
             self.collateral_infos[collateral_type]
         pass
-
-
-// --- Settlement ---
-    function heal(uint rad) external {
-        address u = msg.sender;
-        sin[u] = _sub(sin[u], rad);
-        dai[u] = _sub(dai[u], rad);
-        vice   = _sub(vice,   rad);
-        debt   = _sub(debt,   rad);
-    }
-    function suck(address u, address v, uint rad) external auth {
-        sin[u] = _add(sin[u], rad);
-        dai[v] = _add(dai[v], rad);
-        vice   = _add(vice,   rad);
-        debt   = _add(debt,   rad);
-    }
-
-    // --- Rates ---
-    function fold(bytes32 i, address u, int rate) external auth {
-        require(live == 1, "Vat/not-live");
-        Ilk storage ilk = ilks[i];
-        ilk.rate = _add(ilk.rate, rate);
-        int rad  = _mul(ilk.Art, rate);
-        dai[u]   = _add(dai[u], rad);
-        debt     = _add(debt,   rad);
-    }
-
-
-
-    # def liquidate(self, collateral_type, user):
-    #     loan = self.loans[collateral_type][user]
-    #     collateral_info = self.collateral_infos[collateral_type]
-    #
-    #     if self.inappropriate_time_to_liquidate(collateral_info, loan):
-    #         return
-    #
-    #     max_amt_to_liquidate = min(self.max_active_auction_debt - self.amt_active_auction_debt,
-    #                                collateral_info.max_active_aution_debt - collateral_info.amt_active_aution_debt)
-    #     # ??????? below
-    #     dart = min(loan.debt_amt,
-    #                max_amt_to_liquidate * WAD / collateral_info.interest_rate / collateral_info.liquidation_penalty)
-    #
-    #     if loan.debt_amt > dart:
-    #         if (loan.debt_amt - dart) * collateral_info.interest_rate < collateral_info.dust:
-    #             dart = loan.debt_amt
-    #         elif not (dart * collateral_info.interest_rate >= collateral_info.dust):
-    #             "do something here"
-    #
-    #     dink = loan.collateral_amt * dart / loan.debt_amt
-    #     if not (dink > 0):
-    #         return
-    #     if not (dart <= 2**255 and dink <= 2**255):
-    #         "do something here"
-
-        # vat.grab(
-        #     ilk, urn, milk.clip, address(vow), -int256(dink), -int256(dart)
-        # );
-        # // --- CDP Confiscation ---
-#     function grab(bytes32 i, address u, address v, address w, int dink, int dart) external auth {
-#         Urn storage urn = urns[i][u];
-#         Ilk storage ilk = ilks[i];
-
-#         urn.ink = _add(urn.ink, dink);
-#         urn.art = _add(urn.art, dart);
-#         ilk.Art = _add(ilk.Art, dart);
-
-#         int dtab = _mul(ilk.rate, dart);
-
-#         gem[i][v] = _sub(gem[i][v], dink);
-#         sin[w]    = _sub(sin[w],    dtab);
-#         vice      = _sub(vice,      dtab);
-#     }
-
-        # uint256 due = mul(dart, rate);
-        # vow.fess(due);
-
-        # {   // Avoid stack too deep
-        #     // This calculation will overflow if dart*rate exceeds ~10^14
-        #     uint256 tab = mul(due, milk.chop) / WAD;
-        #     Dirt = add(Dirt, tab);
-        #     ilks[ilk].dirt = add(milk.dirt, tab);
-
-        #     id = ClipperLike(milk.clip).kick({
-        #         tab: tab,
-        #         lot: dink,
-        #         usr: urn,
-        #         kpr: kpr
-        #     });
-        # }
-
-        # emit Bark(ilk, urn, dink, dart, due, milk.clip, id);
