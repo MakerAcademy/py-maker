@@ -1,3 +1,5 @@
+from typing import Dict
+
 WAD = 10 ** 18
 
 # vat.sol
@@ -33,22 +35,61 @@ class CollateralInfo:
         self.amt_active_auction_debt = 0
         self.liquidation_penalty = 0
 
+# Ticker represents the ticker of a certain collateral type, "ETH" for example
+# In dss, ticker = bytes32 (kind of)
+class Ticker:
+    def __init__(self, tick : str):
+        self.tick = tick
 
+# User just represents the name of a user
+# In dss, user = address (kind of)
+class User:
+    def __init__(self, name : str):
+        self.name = name
+
+# In the dss, Bank = Vat
 class Bank:
     
-    def __init__(self, loans, collateral_infos, bank_is_closed, total_debt_issued,
-                 max_debt_amount, approved_loan_modifiers, who_owns_collateral, who_owns_debt):
+    def __init__(self, loans : Dict[Ticker, Dict[User, Loan]],
+                 collateral_infos : Dict[Ticker, CollateralInfo],
+                 bank_is_open : bool, total_debt_issued : float,
+                 max_debt_amount : float,
+                 approved_loan_modifiers : Dict[User, Dict[User, bool]],
+                 who_owns_collateral : Dict[Ticker, Dict[User, float]],
+                 who_owns_debt : Dict[User, float]):
+        # A nested dictionary that maps the ticker of the collateral type ("Eth" for example)
+        # to a dictionary of loans per user for that collateral type.
+        # ticker of collateral type [Ticker] -> name of user [User] -> Loan object [Loan]
+        # In the dss, loans = urns
         self.loans = loans
+        # Collateral infos is a dictionary that maps the ticker of a collateral type
+        # to the CollateralInfo object.
+        # collateral
+        # In the dss, collateral_infos = ilks
         self.collateral_infos = collateral_infos
-        self.bank_is_closed = bank_is_closed
+        # bank_is_open is True if it is open for business and False otherwise.
+        # In the dss, bank_is_open = live
+        self.bank_is_open = bank_is_open
+        # total_debt_issued is an number that represents the total value of debt issued by
+        # the bank to customers across all loans
+        # In the dss, total_debt_issued = debt
         self.total_debt_issued = total_debt_issued
+        # max_debt_amount is the maximum amount of debt that the bank is allowed to issue
+        # In the dss, max_debt_amount = Line
         self.max_debt_amount = max_debt_amount
+        # approved_loan_modifiers is a dictionary from users who are trying to modify a loan
+        # to the owner of that loan to a bool (True if they can modify that user's loan, false
+        # if not).
+        # name of user [User] -> name of other user [User] -> bool
+        # In the dss, approved_loan_modifiers = can
         self.approved_loan_modifiers = approved_loan_modifiers
+        # who_owns_collateral is a dictionary that maps collateral types (represented by ticker)
+        # to a user, to how much a user owns of that collateral type
+        # In the dss, who_owns_collateral = gem
         self.who_owns_collateral = who_owns_collateral
+        # who_owns_debt is a dictionary that maps users to the amount of debt they have
+        # In the dss, who_owns_debt = dai
         self.who_owns_debt = who_owns_debt
-
-        self.max_active_auction_debt = 0
-        self.amt_active_auction_debt = 0
 
     @staticmethod
     def debt_has_decreased(delta_debt_amt):
@@ -94,7 +135,7 @@ class Bank:
         loan_user_consent = self.loan_user_consent(sender, delta_debt_amt)
         debt_safe_loan = self.debt_safe_loan(loan, delta_debt_amt, collateral_info)
         return debt_amt_is_safe and sender_not_malicious and user_has_acceptable_loan and sender_consent \
-            and loan_user_consent and debt_safe_loan and (not self.bank_is_closed)
+            and loan_user_consent and debt_safe_loan and self.bank_is_open
 
     def modify_loan(self, collateral_type, delta_collateral_amt, delta_debt_amt, user, sender):
         collateral_info = self.collateral_infos[collateral_type]
@@ -128,6 +169,39 @@ class Bank:
         loan_is_safe = self.loan_is_acceptable(collateral_info, loan)
         too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
         return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
+
+    def change_collateral_rate(self, collateral_type, u, new_rate):
+        if self.bank_is_open:
+            self.collateral_infos[collateral_type]
+        pass
+
+
+// --- Settlement ---
+    function heal(uint rad) external {
+        address u = msg.sender;
+        sin[u] = _sub(sin[u], rad);
+        dai[u] = _sub(dai[u], rad);
+        vice   = _sub(vice,   rad);
+        debt   = _sub(debt,   rad);
+    }
+    function suck(address u, address v, uint rad) external auth {
+        sin[u] = _add(sin[u], rad);
+        dai[v] = _add(dai[v], rad);
+        vice   = _add(vice,   rad);
+        debt   = _add(debt,   rad);
+    }
+
+    // --- Rates ---
+    function fold(bytes32 i, address u, int rate) external auth {
+        require(live == 1, "Vat/not-live");
+        Ilk storage ilk = ilks[i];
+        ilk.rate = _add(ilk.rate, rate);
+        int rad  = _mul(ilk.Art, rate);
+        dai[u]   = _add(dai[u], rad);
+        debt     = _add(debt,   rad);
+    }
+
+
 
     # def liquidate(self, collateral_type, user):
     #     loan = self.loans[collateral_type][user]
