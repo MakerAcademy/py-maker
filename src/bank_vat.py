@@ -138,7 +138,7 @@ class Bank:
     # This method makes sure that the loan is getting less debt and more collateral (becoming a
     # smaller loan essentially), or the owner of the loan has consented for the sender to change
     # his balance.
-    # In dss, this method is equivalent to this require statement from the funciton frob
+    # In dss, this method is equivalent to this require statement from the function frob
     # require(either(both(dart <= 0, dink >= 0), wish(u, msg.sender)), "Vat/not-allowed-u");
     def sender_not_malicious(self, sender, user, delta_debt_amt, delta_collateral_amt):
         # In dss, this is equivalent to wish(u, msg.sender)
@@ -147,17 +147,17 @@ class Bank:
         added_collateral_removed_debt = delta_collateral_amt >= 0 >= delta_debt_amt
         return approved_modifier or added_collateral_removed_debt
 
-    # In dss, this method is equivalent to this require statement from the funciton frob
+    # In dss, this method is equivalent to this require statement from the function frob
     # require(either(dink <= 0, wish(v, msg.sender)), "Vat/not-allowed-v");
     def sender_consent(self, user, sender, delta_collateral_amt):
         return delta_collateral_amt <= 0 or self.approved_loan_modifiers[sender][user]
 
-    # In dss, this method is equivalent to this require statement from the funciton frob
+    # In dss, this method is equivalent to this require statement from the function frob
     # require(either(dart >= 0, wish(w, msg.sender)), "Vat/not-allowed-w");
     def loan_user_consent(self, sender, delta_debt_amt):
         return delta_debt_amt >= 0 or self.approved_loan_modifiers[sender][sender]
 
-    # In dss, this method is equivalent to this require statement from the funciton frob
+    # In dss, this method is equivalent to this require statement from the function frob
     # require(either(urn.art == 0, tab >= ilk.dust), "Vat/dust");
     @staticmethod
     def debt_safe_loan(loan, delta_debt_amt, collateral_info):
@@ -221,6 +221,9 @@ class Bank:
     #     too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
     #     return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
+
+    # In dss, this is equivalent to this require statement in fork
+    # require(both(wish(src, msg.sender), wish(dst, msg.sender)), "Vat/not-allowed");
     def modify_collateral(self, user, collateral_type, delta_collateral_amount):
         self.who_owns_collateral[collateral_type][user] = \
             self.who_owns_collateral[collateral_type][user] + delta_collateral_amount
