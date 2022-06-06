@@ -1,6 +1,5 @@
-import copy
 from typing import Dict
-
+from primitives import Ticker, User
 WAD = 10 ** 18
 
 # vat.sol
@@ -39,18 +38,6 @@ class CollateralInfo:
         self.min_debt_amt = min_debt_amt
         # In dss, interest_rate = rate
         self.interest_rate = interest_rate
-
-# Ticker represents the ticker of a certain collateral type, "ETH" for example
-# In dss, ticker = bytes32 (kind of)
-class Ticker:
-    def __init__(self, tick: str):
-        self.tick = tick
-
-# User just represents the name of a user
-# In dss, user = address (kind of)
-class User:
-    def __init__(self, name: str):
-        self.name = name
 
 # In the dss, Bank = Vat
 class Bank:
@@ -284,7 +271,11 @@ class Bank:
             self.loans[collateral_type][receiver].collateral_amt = receiver_collateral
             self.loans[collateral_type][receiver].debt_amt = receiver_debt
 
-
+    # In dss, this is basically equivalent to the following line
+    # if (what == "spot") ilks[ilk].spot = data;
+    # from the  function file(bytes32 ilk, bytes32 what, uint data) external auth {
+    def set_spot_price(self, collateral_type: Ticker, spot_price: float):
+        self.collateral_infos[collateral_type].safe_spot_price = spot_price
 
 
     # @staticmethod
