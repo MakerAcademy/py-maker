@@ -294,6 +294,7 @@ class Bank:
             self.loans[collateral_type][user2].debt_amt = user2_debt
 
     # In dss, this is equivalent to the grab function
+    # implement authorization for this function
     def seize_debt(self, collateral_type, user1, user2, user3, delta_collateral_amount, delta_debt_amount):
         user1_loan = self.loans[collateral_type][user1]
         collateral_info = self.collateral_infos[collateral_type]
@@ -303,8 +304,29 @@ class Bank:
         delta_tab = collateral_info.interest_rate * delta_debt_amount
         self.who_owns_collateral[collateral_type][user2] -= delta_collateral_amount
         self.seized_debt[user3] -= delta_tab
-        self.total_seized_debt -= delta_tab
+        self.total_seized_debt -= delta_tab  # shouldn't these three lines be +=?
 
+    # In dss, this is equivalent to the heal function
+    def settle_debt(self, sender, amount):
+        self.seized_debt[sender] -= amount
+        self.who_owns_debt[sender] -= amount
+        self.total_seized_debt -= amount
+        self.total_debt_issued -= amount
+
+    # In dss, this is equivalent to the suck function
+    # implement authorization for this function
+    def add_debt(self, user1, user2, amount):
+        self.seized_debt[user1] += amount
+        self.who_owns_debt[user2] += amount
+        self.total_seized_debt += amount
+        self.total_debt_issued += amount
+
+    # In dss, this is equivalent to the fold function
+    # implement authorization for this function
+    def modify_interest_rate(self, collateral_type, user, delta_collateral_interest_rate):
+        self.collateral_infos[collateral_type].interest_rate += delta_collateral_interest_rate
+        self.who_owns_debt[user] += self.collateral_infos[collateral_type].total_debt_amt * delta_collateral_interest_rate
+        self.total_debt_issued += self.collateral_infos[collateral_type].total_debt_amt * delta_collateral_interest_rate
 
     # @staticmethod
     # def loan_is_acceptable(collateral_info, loan):
