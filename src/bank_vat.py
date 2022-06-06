@@ -61,7 +61,8 @@ class Bank:
                  max_debt_amount: float,
                  approved_loan_modifiers: Dict[User, Dict[User, bool]],
                  who_owns_collateral: Dict[Ticker, Dict[User, float]],
-                 who_owns_debt: Dict[User, float]):
+                 who_owns_debt: Dict[User, float],
+                 seized_debt: Dict[User, float]):
         # A nested dictionary that maps the ticker of the collateral type ("Eth" for example)
         # to a dictionary of loans per user for that collateral type.
         # ticker of collateral type [Ticker] -> name of user [User] -> Loan object [Loan]
@@ -95,6 +96,10 @@ class Bank:
         # who_owns_debt is a dictionary that maps users to the amount of debt they have
         # In the dss, who_owns_debt = dai
         self.who_owns_debt = who_owns_debt
+        # seized_debt is a dictionary that maps users to the amount of debt that has been seized from them
+        # In dss, seized_debt = sin
+        self.seized_debt = seized_debt
+        self.total_seized_debt = sum(seized_debt.values())
 
     # This method checks whether the debt has decreased (the delta - change in - debt
     # is negative)
@@ -266,6 +271,7 @@ class Bank:
         receiver_not_dusty = user2_tab >= minimum_debt or receiver_debt_amount == 0
         return sender_not_dusty and receiver_not_dusty
 
+    # In dss, this is equivalent to the fork function
     def split_loan(self, sender, user1, user2, collateral_type, delta_debt_amount, delta_collateral_amount):
         user1_loan = self.loans[collateral_type][user1]
         user2_loan = self.loans[collateral_type][user2]
@@ -287,7 +293,17 @@ class Bank:
             self.loans[collateral_type][user2].collateral_amt = user2_collateral
             self.loans[collateral_type][user2].debt_amt = user2_debt
 
-
+    # In dss, this is equivalent to the grab function
+    def seize_debt(self, collateral_type, user1, user2, user3, delta_collateral_amount, delta_debt_amount):
+        user1_loan = self.loans[collateral_type][user1]
+        collateral_info = self.collateral_infos[collateral_type]
+        user1_loan.collateral_amt += delta_collateral_amount
+        user1_loan.debt_amt += delta_debt_amount
+        collateral_info.total_debt_amt += delta_debt_amount
+        delta_tab = collateral_info.interest_rate * delta_debt_amount
+        self.who_owns_collateral[collateral_type][user2] -= delta_collateral_amount
+        self.seized_debt[user3] -= delta_tab
+        self.total_seized_debt -= delta_tab
 
 
     # @staticmethod
