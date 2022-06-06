@@ -229,60 +229,63 @@ class Bank:
             self.who_owns_collateral[collateral_type][user] + delta_collateral_amount
 
     # In dss, this method is equivalent to flux
+    # Sender here refers to the transaction creator
     def transfer_collateral(self, collateral_type, sender, user1, user2, delta_collateral_amount):
         if self.approved_loan_modifiers[user1][sender]:
             self.who_owns_collateral[collateral_type][user1] -= delta_collateral_amount
             self.who_owns_collateral[collateral_type][user2] += delta_collateral_amount
 
     # In dss, this method is equivalent to slip
+    # Sender here refers to the transaction creator
     def transfer_debt(self, sender, user1, user2, delta_debt_amount):
         if self.approved_loan_modifiers[user1][sender]:
             self.who_owns_debt[user1] -= delta_debt_amount
             self.who_owns_debt[user2] += delta_debt_amount
 
     # In dss, this is equivalent to this require statement in the fork function
+    # Sender here refers to the transaction creator
     # require(both(wish(src, msg.sender), wish(dst, msg.sender)), "Vat/not-allowed");
-    def sender_and_receiver_consent(self, sender, receiver):
-        return self.approved_loan_modifiers[sender][receiver] and self.approved_loan_modifiers[receiver][sender]
+    def sender_and_receiver_consent(self, sender, user1, user2):
+        return self.approved_loan_modifiers[user1][sender] and self.approved_loan_modifiers[user2][sender]
 
     # In dss, this is equivalent to this require statement in the fork function
     # require(utab <= _mul(u.ink, i.spot), "Vat/not-safe-src");
     # require(vtab <= _mul(v.ink, i.spot), "Vat/not-safe-dst");
     @staticmethod
-    def both_sides_safe(sender_tab, receiver_tab, sender_collateral_amount, receiver_collateral_amount, spot_price):
-        sender_safe = sender_tab <= sender_collateral_amount * spot_price
-        receiver_safe = receiver_tab <= receiver_collateral_amount * spot_price
+    def both_sides_safe(user1_tab, user2_tab, sender_collateral_amount, receiver_collateral_amount, spot_price):
+        sender_safe = user1_tab <= sender_collateral_amount * spot_price
+        receiver_safe = user2_tab <= receiver_collateral_amount * spot_price
         return sender_safe and receiver_safe
 
     # In dss, this is equivalent to this require statement in the fork function
     # require(either(utab >= i.dust, u.art == 0), "Vat/dust-src");
     # require(either(vtab >= i.dust, v.art == 0), "Vat/dust-dst");
     @staticmethod
-    def check_minimum_debt(sender_tab, receiver_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
-        sender_not_dusty = sender_tab >= minimum_debt or sender_debt_amount == 0
-        receiver_not_dusty = receiver_tab >= minimum_debt or receiver_debt_amount == 0
+    def check_minimum_debt(user1_tab, user2_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
+        sender_not_dusty = user1_tab >= minimum_debt or sender_debt_amount == 0
+        receiver_not_dusty = user2_tab >= minimum_debt or receiver_debt_amount == 0
         return sender_not_dusty and receiver_not_dusty
 
-    def split_loan(self, sender, receiver, collateral_type, delta_debt_amount, delta_collateral_amount):
-        sender_loan = self.loans[collateral_type][sender]
-        receiver_loan = self.loans[collateral_type][receiver]
+    def split_loan(self, sender, user1, user2, collateral_type, delta_debt_amount, delta_collateral_amount):
+        user1_loan = self.loans[collateral_type][user1]
+        user2_loan = self.loans[collateral_type][user2]
         collateral_info = self.collateral_infos[collateral_type]
-        sender_collateral = sender_loan.collateral_amt - delta_collateral_amount
-        sender_debt = sender_loan.debt_amt - delta_debt_amount
-        receiver_collateral = receiver_loan.collateral_amt + delta_collateral_amount
-        receiver_debt = receiver_loan.debt_amt + delta_debt_amount
-        sender_tab = sender_debt * collateral_info.interest_rate
-        receiver_tab = receiver_debt * collateral_info.interest_rate
-        consent = self.sender_and_receiver_consent(sender, receiver)
-        safe = self.both_sides_safe(sender_tab, receiver_tab, sender_collateral, receiver_collateral,
+        user1_collateral = user1_loan.collateral_amt - delta_collateral_amount
+        user1_debt = user1_loan.debt_amt - delta_debt_amount
+        user2_collateral = user2_loan.collateral_amt + delta_collateral_amount
+        user2_debt = user2_loan.debt_amt + delta_debt_amount
+        user1_tab = user1_debt * collateral_info.interest_rate
+        user2_tab = user2_debt * collateral_info.interest_rate
+        consent = self.sender_and_receiver_consent(sender, user1, user2)
+        safe = self.both_sides_safe(user1_tab, user2_tab, user1_collateral, user2_collateral,
                                     collateral_info.safe_spot_price)
-        minimum_achieved = self.check_minimum_debt(sender_tab, receiver_tab, collateral_info.min_debt_amt, sender_debt,
-                                                   receiver_debt)
+        minimum_achieved = self.check_minimum_debt(user1_tab, user2_tab, collateral_info.min_debt_amt, user1_debt,
+                                                   user2_debt)
         if consent and safe and minimum_achieved:
-            self.loans[collateral_type][sender].collateral_amt = sender_collateral
-            self.loans[collateral_type][sender].debt_amt = sender_debt
-            self.loans[collateral_type][receiver].collateral_amt = receiver_collateral
-            self.loans[collateral_type][receiver].debt_amt = receiver_debt
+            self.loans[collateral_type][user1].collateral_amt = user1_collateral
+            self.loans[collateral_type][user1].debt_amt = user1_debt
+            self.loans[collateral_type][user2].collateral_amt = user2_collateral
+            self.loans[collateral_type][user2].debt_amt = user2_debt
 
 
 
