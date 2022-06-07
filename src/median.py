@@ -1,9 +1,13 @@
-from src.primitives import Ticker
+from typing import Dict, List
+
+from src.version0.primitives import Ticker, Contract, Signature, ec_recover, compute_message
 
 
 class Median:
 
     def __init__(self, price: float, time_of_last_update: float,
+                 authorized_price_queriers: Dict[Contract, bool],
+                 authorized_contracts_to_read_values: Dict[Contract, bool],
                  type_of_asset: Ticker = "ETH", valid_message_threshold: int = 1):
         # In dss, price = val
         self.price = price
@@ -13,67 +17,48 @@ class Median:
         self.type_of_asset =  type_of_asset
         # In dss, valid_message_threshold = bar
         self.valid_message_threshold = valid_message_threshold
+        # In dss, authorized_price_queriers = orcl
+        self.authorized_price_queriers = authorized_price_queriers
+        # In dss, authorized_contracts_to_read_values = bud
+        self.authorized_contracts_to_read_values = authorized_contracts_to_read_values
+        # In dss,
+        self.slot = 0
 
+    def read(self, sender):
+        if self.price <= 0 or not self.authorized_contracts_to_read_values[sender]: return
+        return self.price
 
-    // Authorized oracles, set by an auth
-    mapping (address => uint256) public orcl;
+    def peek(self, sender) -> (float, bool):
+        if not self.authorized_contracts_to_read_values[sender]: return
+        return self.price, self.price > 0
 
-    // Whitelisted contracts, set by an auth
-    mapping (address => uint256) public bud;
+    def recover(self):
+        pass
+
 
     // Mapping for at most 256 oracles
     mapping (uint8 => address) public slot;
 
     modifier toll { require(bud[msg.sender] == 1, "Median/contract-not-whitelisted"); _;}
 
-    event LogMedianPrice(uint256 val, uint256 age);
+    def recover(self, value: float, age: float, signature: Signature):
+        return ec_recover(compute_message(value, age), signature)
 
-    //Set type of Oracle
-    constructor() public {
-        wards[msg.sender] = 1;
-    }
+    def poke(self, values: List[float], ages: List[float], signatures: List[Signature]):
+        if val.length != bar: return
 
-    function read() external view toll returns (uint256) {
-        require(val > 0, "Median/invalid-price-feed");
-        return val;
-    }
+        bloom = 0
+        last = 0
 
-    function peek() external view toll returns (uint256,bool) {
-        return (val, val > 0);
-    }
+        for i in range(0, len(values)):
+            signer = self.recover(values[i], ages[i], signatures[i])
+            if not self.authorized_price_queriers[signer]: return
+            if ages[i] <= self.time_of_last_update: return
+            if values[i] < last: return
+            last = values[i]
 
-    function recover(uint256 val_, uint256 age_, uint8 v, bytes32 r, bytes32 s) internal pure returns (address) {
-        return ecrecover(
-            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(abi.encodePacked(val_, age_, wat)))),
-            v, r, s
-        );
-    }
 
-    function poke(
-        uint256[] calldata val_, uint256[] calldata age_,
-        uint8[] calldata v, bytes32[] calldata r, bytes32[] calldata s) external
-    {
-        require(val_.length == bar, "Median/bar-too-low");
 
-        uint256 bloom = 0;
-        uint256 last = 0;
-        uint256 zzz = age;
-
-        for (uint i = 0; i < val_.length; i++) {
-            // Validate the values were signed by an authorized oracle
-            address signer = recover(val_[i], age_[i], v[i], r[i], s[i]);
-            // Check that signer is an oracle
-            require(orcl[signer] == 1, "Median/invalid-oracle");
-            // Price feed age greater than last medianizer age
-            require(age_[i] > zzz, "Median/stale-message");
-            // Check for ordered values
-            require(val_[i] >= last, "Median/messages-not-in-order");
-            last = val_[i];
-            // Bloom filter for signer uniqueness
-            uint8 sl = uint8(uint256(signer) >> 152);
-            require((bloom >> sl) % 2 == 0, "Median/oracle-already-signed");
-            bloom += uint256(2) ** sl;
-        }
 
         val = uint128(val_[val_.length >> 1]);
         age = uint32(block.timestamp);

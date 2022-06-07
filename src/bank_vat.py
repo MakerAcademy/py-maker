@@ -1,5 +1,5 @@
 from typing import Dict
-from primitives import Ticker, User
+from src.version0.primitives import Ticker, User
 WAD = 10 ** 18
 
 # vat.sol

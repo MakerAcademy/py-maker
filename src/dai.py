@@ -1,6 +1,6 @@
 from typing import Dict
 
-from src.primitives import User, Ticker
+from src.version0.primitives import User, Ticker
 
 
 class Dai
