@@ -113,7 +113,6 @@ class LiquidationModule:
                     self.auction_cost += tab
                     auction_collateral.auction_cost += tab
                     # Clipper is not implemented yet, the name will change when it is written
-                    id = Clipper(auction_collateral.liquidator).kick(tab, delta_collateral_amount, user, address_to_reward)
-                    # this line is an emit statement in dss, not sure how to handle that in python
-                    # Bark is not implemented yet, the name will change when it is written
-                    return Bark(ticker, user, delta_collateral_amount, delta_debt_amount, due, auction_collateral.liquidator, id)
+                    # this is not implemented because it is only used in an event
+                    # id = Clipper(auction_collateral.liquidator).kick(tab, delta_collateral_amount, user, address_to_reward)
+                    # the dss code would emit a Bark event here, but events are not implemented in py-maker
