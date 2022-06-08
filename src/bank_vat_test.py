@@ -1,9 +1,8 @@
 import unittest
-from bank_vat import Bank
-from bank_vat import CollateralInfo
-from bank_vat import Loan
-from bank_vat import User
-from bank_vat import Ticker
+from src.version0.bank_vat import Bank
+from src.version0.bank_vat import CollateralInfo
+from src.version0.bank_vat import Loan
+
 
 class TestStatics(unittest.TestCase):
     def test_debt_has_decreased(self):
