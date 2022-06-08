@@ -41,7 +41,6 @@ class CollateralInfo:
 
 # In the dss, Bank = Vat
 class Bank:
-    
     def __init__(self, loans: Dict[Ticker, Dict[User, Loan]],
                  collateral_infos: Dict[Ticker, CollateralInfo],
                  bank_is_open: bool, total_debt_issued : float,
