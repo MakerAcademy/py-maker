@@ -4,8 +4,8 @@ from typing import Dict
 
 # ilk structure within dog.sol
 class AuctionCollateral:
-    def __init__(self, liquidator: Ticker, liquidation_penalty: float, max_auction_cost: float, auction_cost: float):
-        # an address pointing to a liquidator for a dictionary of {Ticker : liquidator}
+    def __init__(self, liquidator: User, liquidation_penalty: float, max_auction_cost: float, auction_cost: float):
+        # an address pointing to the liquidating user
         self.liquidator = liquidator
         # current liquidation penalty
         self.liquidation_penalty = liquidation_penalty
@@ -17,7 +17,8 @@ class AuctionCollateral:
 
 # dog contract in dss
 class LiquidationModule:
-    def __init__(self, bank: Bank, collaterals: Dict[Ticker, AuctionCollateral], debt_engine, max_auction_cost, auction_cost):
+    def __init__(self, bank: Bank, collaterals: Dict[Ticker, AuctionCollateral],
+                 debt_engine, max_auction_cost: float, auction_cost: float):
         # dog module takes in a vat/bank
         self.bank = bank
         # dictionary of collateral addresses to AuctionCollateral
@@ -39,22 +40,27 @@ class LiquidationModule:
     def debt_safe(spot_price, collateral_amount, debt_amount, interest_rate):
         return spot_price > 0 and collateral_amount * spot_price < debt_amount * interest_rate
 
+    # require(Hole > Dirt & & milk.hole > milk.dirt, "Dog/liquidation-limit-hit");
     def liquidation_limit_not_exceeded(self, collateral_max_auction_cost, collateral_auction_cost):
         return self.max_auction_cost > self.auction_cost and collateral_max_auction_cost > collateral_auction_cost
 
+    # require(mul(dart, rate) >= dust, "Dog/dusty-auction-from-partial-liquidation");
     @staticmethod
     def auction_not_dusty(delta_debt_amount, interest_rate, min_debt_amount):
         return delta_debt_amount * interest_rate >= min_debt_amount
 
+    # require(dink > 0, "Dog/null-auction");
     @staticmethod
     def auction_not_null(delta_collateral_amount):
         return delta_collateral_amount > 0
 
     # probably don't need to make this check in python
+    # require(dart <= 2**255 && dink <= 2**255, "Dog/overflow");
     @staticmethod
     def no_overflow(delta_debt_amount, delta_collateral_amount):
         return delta_debt_amount <= 2**255 and delta_collateral_amount <= 2**255
 
+    # compiling all requirements for liquidate function into one boolean
     def liquidate_requirements(self, spot_price, collateral_amount, debt_amount, interest_rate, collateral_max_auction_cost,
                                collateral_auction_cost, delta_collateral_amount, delta_debt_amount):
         return self.debt_safe(spot_price, collateral_amount, debt_amount, interest_rate) and \
@@ -62,14 +68,11 @@ class LiquidationModule:
                self.auction_not_null(delta_collateral_amount) and \
                self.no_overflow(delta_debt_amount, delta_collateral_amount)
 
-
-
-
     # function to liquidate a loan and start a Dutch auction
     # sells collateral for DAI
     # address_to_reward is the loan address to give the liquidation reward to, if any
     # bark function in dss
-    def liquidate(self, ticker: Ticker, user: User, address_to_reward):
+    def liquidate(self, ticker: Ticker, user: User, address_to_reward: User):
         # vat.urns(ilk, urn)
         loan = self.bank.loans[ticker][user]
         # ink
