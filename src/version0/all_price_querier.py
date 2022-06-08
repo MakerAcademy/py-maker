@@ -4,9 +4,9 @@
 
 from typing import Dict
 
-from src.bank_vat import Bank
+from src.version0.bank_vat import Bank
 from src.version0.primitives import Ticker, User, require
-from src.version0.single_price_querier import SingleCollateralPriceQuerier, Feed
+from src.version0.single_price_querier import SingleCollateralPriceQuerier
 
 
 # This represents information for a supported collateral type.

@@ -227,7 +227,7 @@ class Bank:
             self.who_owns_collateral[collateral_type][user1] -= delta_collateral_amount
             self.who_owns_collateral[collateral_type][user2] += delta_collateral_amount
 
-    # In dss, this method is equivalent to slip
+    # In dss, this method is equivalent to move
     # Sender here refers to the transaction creator
     def transfer_debt(self, sender, user1, user2, delta_debt_amount):
         if self.approved_loan_modifiers[user1][sender]:

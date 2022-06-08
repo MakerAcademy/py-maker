@@ -1,149 +1,143 @@
-pragma solidity ^0.6.12;
+# This file replicates the logic of join.sol of the makerdao/dss
+# repository. join.sol can be found here: https://github.com/makerdao/dss/blob/master/src/join.sol
+# Authored by Colby Anderson
 
-// FIXME: This contract was altered compared to the production version.
-// It doesn't use LibNote anymore.
-// New deployments of this contract will need to include custom events (TO DO).
+from typing import Dict
 
-interface GemLike {
-    function decimals() external view returns (uint);
-    function transfer(address,uint) external returns (bool);
-    function transferFrom(address,address,uint) external returns (bool);
-}
+from src.version0.bank_vat import Bank
+from src.version0.dai import Dai
+from src.version0.primitives import User, require, Ticker, Collateral
 
-interface DSTokenLike {
-    function mint(address,uint) external;
-    function burn(address,uint) external;
-}
 
-interface VatLike {
-    function slip(bytes32,address,int) external;
-    function move(address,address,uint) external;
-}
+class GemJoin:
+    def __init__(self, sender: User,
+                 authorized_users: Dict[User, bool],
+                 bank: Bank, collateral_type: Ticker,
+                 collateral: Collateral, live: bool):
+        # A dictionary from users to bool, wherein [user] = True
+        # if the user has authorization to access special methods
+        # [join.sol] Replicates wards
+        self.authorized_users = authorized_users
+        self.authorized_users[sender] = True
+        # [join.sol] Replicates vat
+        self.bank = bank
+        # [join.sol] Replicates ilk
+        self.collateral_type = collateral_type
+        # [join.sol] Replicates gem
+        self.collateral = collateral
+        # [join.sol] Replicates live
+        self.live = live
+        # This represents the name of the class. When an object of this
+        # class calls other functions in different classes, and these external
+        # functions need the name of a caller, this name will be passed.
+        self.name = User("GemJoin")
 
-/*
-    Here we provide *adapters* to connect the Vat to arbitrary external
-    token implementations, creating a bounded context for the Vat. The
-    adapters here are provided as working examples:
-      - `GemJoin`: For well behaved ERC20 tokens, with simple transfer
-                   semantics.
-      - `ETHJoin`: For native Ether.
-      - `DaiJoin`: For connecting internal Dai balances to an external
-                   `DSToken` implementation.
-    In practice, adapter implementations will be varied and specific to
-    individual collateral types, accounting for different transfer
-    semantics and token standards.
-    Adapters need to implement two basic methods:
-      - `join`: enter collateral into the system
-      - `exit`: remove collateral from the system
-*/
+    # -------------------------------------------------------
+    # ---------- Granting/Removing Authorization ------------
+    # -------------------------------------------------------
 
-contract GemJoin {
-    // --- Auth ---
-    mapping (address => uint) public wards;
-    function rely(address usr) external auth {
-        wards[usr] = 1;
-        emit Rely(usr);
-    }
-    function deny(address usr) external auth {
-        wards[usr] = 0;
-        emit Deny(usr);
-    }
-    modifier auth {
-        require(wards[msg.sender] == 1, "GemJoin/not-authorized");
-        _;
-    }
+    # Grants authorization for a specific user if the sender [caller
+    # of the function] has authorization access.
+    # [join.sol] Replicates rely(address guy) external auth
+    def grant_authorization(self, sender: User, new_user: User):
+        require(necessary_condition=self.authorized_users.get(sender, False) is True,
+                error_message="Sender doesn't have authorized access")
+        self.authorized_users[new_user] = True
 
-    VatLike public vat;   // CDP Engine
-    bytes32 public ilk;   // Collateral Type
-    GemLike public gem;
-    uint    public dec;
-    uint    public live;  // Active Flag
+    # Removes authorization for a specific user if the sender [caller
+    # of the function] has authorization access.
+    # [join.sol] Replicates deny(address guy) external auth
+    def remove_authorization(self, sender: User, old_user: User):
+        require(necessary_condition=self.authorized_users.get(sender, False) is True,
+                error_message="Sender doesn't have authorized access")
+        self.authorized_users[old_user] = False
 
-    // Events
-    event Rely(address indexed usr);
-    event Deny(address indexed usr);
-    event Join(address indexed usr, uint256 wad);
-    event Exit(address indexed usr, uint256 wad);
-    event Cage();
+    # -------------------------------------------------------
+    # ------------------------ Setters ----------------------
+    # -------------------------------------------------------
 
-    constructor(address vat_, bytes32 ilk_, address gem_) public {
-        wards[msg.sender] = 1;
-        live = 1;
-        vat = VatLike(vat_);
-        ilk = ilk_;
-        gem = GemLike(gem_);
-        dec = gem.decimals();
-        emit Rely(msg.sender);
-    }
-    function cage() external auth {
-        live = 0;
-        emit Cage();
-    }
-    function join(address usr, uint wad) external {
-        require(live == 1, "GemJoin/not-live");
-        require(int(wad) >= 0, "GemJoin/overflow");
-        vat.slip(ilk, usr, int(wad));
-        require(gem.transferFrom(msg.sender, address(this), wad), "GemJoin/failed-transfer");
-        emit Join(usr, wad);
-    }
-    function exit(address usr, uint wad) external {
-        require(wad <= 2 ** 255, "GemJoin/overflow");
-        vat.slip(ilk, msg.sender, -int(wad));
-        require(gem.transfer(usr, wad), "GemJoin/failed-transfer");
-        emit Exit(usr, wad);
-    }
-}
+    # [join.sol] Replicates cage
+    def turn_off(self, sender: User):
+        require(necessary_condition=self.authorized_users.get(sender, False) is True,
+                error_message="Sender doesn't have authorized access")
+        self.live = False
 
-contract DaiJoin {
-    // --- Auth ---
-    mapping (address => uint) public wards;
-    function rely(address usr) external auth {
-        wards[usr] = 1;
-        emit Rely(usr);
-    }
-    function deny(address usr) external auth {
-        wards[usr] = 0;
-        emit Deny(usr);
-    }
-    modifier auth {
-        require(wards[msg.sender] == 1, "DaiJoin/not-authorized");
-        _;
-    }
+    # [join.sol] Replicates join
+    def join(self, sender: User, loan_owner: User, amount: float):
+        require(necessary_condition=self.live is True,
+                error_message="GemJoin is turned off")
+        self.collateral.transfer_from(sender, self.name, amount)
+        self.bank.modify_collateral(collateral_type=self.collateral_type,
+                                    user=loan_owner, delta_collateral_amount=amount)
 
-    VatLike public vat;      // CDP Engine
-    DSTokenLike public dai;  // Stablecoin Token
-    uint    public live;     // Active Flag
+    # [join.sol] Replicates exit
+    def exit(self, sender: User, user: User, amount: float):
+        self.collateral.transfer_from(self.name, user, amount)
+        self.bank.modify_collateral(collateral_type=self.collateral_type,
+                                    user=sender, delta_collateral_amount=amount * -1)
 
-    // Events
-    event Rely(address indexed usr);
-    event Deny(address indexed usr);
-    event Join(address indexed usr, uint256 wad);
-    event Exit(address indexed usr, uint256 wad);
-    event Cage();
 
-    constructor(address vat_, address dai_) public {
-        wards[msg.sender] = 1;
-        live = 1;
-        vat = VatLike(vat_);
-        dai = DSTokenLike(dai_);
-    }
-    function cage() external auth {
-        live = 0;
-        emit Cage();
-    }
-    uint constant ONE = 10 ** 27;
-    function mul(uint x, uint y) internal pure returns (uint z) {
-        require(y == 0 || (z = x * y) / y == x);
-    }
-    function join(address usr, uint wad) external {
-        vat.move(address(this), usr, mul(ONE, wad));
-        dai.burn(msg.sender, wad);
-        emit Join(usr, wad);
-    }
-    function exit(address usr, uint wad) external {
-        require(live == 1, "DaiJoin/not-live");
-        vat.move(msg.sender, address(this), mul(ONE, wad));
-        dai.mint(usr, wad);
-        emit Exit(usr, wad);
-    }
-}
+class DaiJoin:
+    def __init__(self, sender: User,
+                 authorized_users: Dict[User, bool],
+                 bank: Bank,
+                 dai: Dai, live: bool):
+        # A dictionary from users to bool, wherein [user] = True
+        # if the user has authorization to access special methods
+        # [join.sol] Replicates wards
+        self.authorized_users = authorized_users
+        self.authorized_users[sender] = True
+        # [join.sol] Replicates vat
+        self.bank = bank
+        # [join.sol] Replicates dai
+        self.dai = dai
+        # [join.sol] Replicates live
+        self.live = live
+        # This represents the name of the class. When an object of this
+        # class calls other functions in different classes, and these external
+        # functions need the name of a caller, this name will be passed.
+        self.name = User("DaiJoin")
+
+    # -------------------------------------------------------
+    # ---------- Granting/Removing Authorization ------------
+    # -------------------------------------------------------
+
+    # Grants authorization for a specific user if the sender [caller
+    # of the function] has authorization access.
+    # [join.sol] Replicates rely(address guy) external auth
+    def grant_authorization(self, sender: User, new_user: User):
+        require(necessary_condition=self.authorized_users.get(sender, False) is True,
+                error_message="Sender doesn't have authorized access")
+        self.authorized_users[new_user] = True
+
+    # Removes authorization for a specific user if the sender [caller
+    # of the function] has authorization access.
+    # [join.sol] Replicates deny(address guy) external auth
+    def remove_authorization(self, sender: User, old_user: User):
+        require(necessary_condition=self.authorized_users.get(sender, False) is True,
+                error_message="Sender doesn't have authorized access")
+        self.authorized_users[old_user] = False
+
+    # -------------------------------------------------------
+    # ------------------------ Setters ----------------------
+    # -------------------------------------------------------
+
+    # [join.sol] Replicates cage
+    def turn_off(self, sender: User):
+        require(necessary_condition=self.authorized_users.get(sender, False) is True,
+                error_message="Sender doesn't have authorized access")
+        self.live = False
+
+    # [join.sol] Replicates join
+    def join(self, sender: User, user: User, amount: float):
+        self.dai.burn(sender, amount)
+        self.bank.transfer_debt(sender=self.name, user1=self.name,
+                                user2=user, delta_debt_amount=amount)
+
+    # [join.sol] Replicates exit
+    def exit(self, sender: User, user: User, amount: float):
+        require(necessary_condition=self.live is True,
+                error_message="DaiJoin is turned off")
+        self.dai.mint(user, amount)
+        self.bank.transfer_debt(sender=self.name, user1=sender,
+                                user2=self.name, delta_debt_amount=amount)
