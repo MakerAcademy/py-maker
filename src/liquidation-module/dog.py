@@ -1,6 +1,8 @@
-from src.primitives import Ticker, User
-from src.bank_vat import Bank
+from src.version0.primitives import Ticker, User
+from src.version0.bank_vat import Bank
 from typing import Dict
+from clip import AuctionManager
+
 
 # ilk structure within dog.sol
 class AuctionCollateral:
@@ -112,7 +114,7 @@ class LiquidationModule:
                     tab = due * self.get_liquidation_penalty(ticker)
                     self.auction_cost += tab
                     auction_collateral.auction_cost += tab
-                    # Clipper is not implemented yet, the name will change when it is written
-                    # this is not implemented because it is only used in an event
-                    # id = Clipper(auction_collateral.liquidator).kick(tab, delta_collateral_amount, user, address_to_reward)
+                    # variable id is used in event emitting, spot.py is not yet written
+                    id = AuctionManager(self.bank, spotter, auction_collateral.liquidator,
+                                        self, ticker, ).kick(tab, delta_collateral_amount, user, address_to_reward)
                     # the dss code would emit a Bark event here, but events are not implemented in py-maker
