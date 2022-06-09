@@ -60,8 +60,13 @@ class AuctionManager:
         starting_nonzero = starting_price > 0
         return tab_nonzero and collateral_nonzero and receiver_valid and starting_nonzero
 
+    def get_starting_price(self):
+        single_price_querier = self.spotter.collateral_infos[self.auction_collateral_address].single_price_querier
+        return single_price_querier.get_current_feed(self.auction_recipient)
+
     def start_auction(self, tab: float, collateral_amount: float,
-                      receiver_of_leftover_collateral: User, receiver_of_incentives: User, starting_price: float):
+                      receiver_of_leftover_collateral: User, receiver_of_incentives: User):
+        starting_price = self.get_starting_price()
         if self.auction_requirements(tab, collateral_amount, receiver_of_leftover_collateral, starting_price):
             self.total_auctions += 1
             self.active_auctions.append(self.total_auctions - 1)
