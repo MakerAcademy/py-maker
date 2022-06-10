@@ -102,4 +102,54 @@ class AuctionManager:
                     incentive = self.flat_incentive + self.percent_incentive * tab
                     self.bank.add_debt(self.auction_recipient, receiver_of_incentives, incentive)
 
+    def buy_collateral(self, auction_id: int, collateral_limit: float, max_price: float, receiver_of_collateral: User):
+        user = self.sales[auction_id].liquidator
+        start_time = self.sales[auction_id].auction_start_time
+        start_price = self.sales[auction_id].auction_start_price
+        tab = self.sales[auction_id].tab
+        collateral_to_sell = self.sales[auction_id].collateral_to_sell
+        redo, price = self.auction_status(start_time, start_price)
+        if (not redo) and max_price >= price:
+            purchased = min(collateral_to_sell, collateral_limit)
+            cost = purchased * price
+            if cost > tab:
+                cost = tab
+                purchased = cost / price
+            elif cost < tab and purchased < collateral_to_sell:
+                if tab - cost < self.minimum_target:
+                    if tab <= self.minimum_target:
+                        return
+                    else:
+                        cost = tab - self.minimum_target
+                        purchased = cost / price
+            self.sales[auction_id].tab = tab - cost
+            self.sales[auction_id].collateral_to_sell = collateral_to_sell - purchased
+            # not certain on who the sender is for this transfer, and need to replicate functionality of address(this)
+            self.bank.transfer_collateral(self.auction_collateral_address, receiver_of_collateral,
+                                          address(this), receiver_of_collateral, purchased)
+            # I don't know what this does
+            # if (data.length > 0 & & who != address(vat) & & who != address(dog_)) {
+            # ClipperCallee(who).clipperCall(msg.sender, owe, slice, data);
+            # }
+
+            self.bank.transfer_debt(receiver_of_collateral, receiver_of_collateral, self.auction_recipient, cost)
+            self.liquidation_module.change_auction_cost(
+                self.auction_collateral_address, self.sales[auction_id].tab + cost if self.sales[auction_id].collateral_to_sell == 0 else cost)
+            if self.sales[auction_id].collateral_to_sell == 0:
+                self.remove_auction(auction_id)
+            elif self.sales[auction_id].tab == 0:
+                # again not sure who the sender should be here
+                self.bank.transfer_collateral(self.auction_collateral_address, address(this), address(this),
+                                              self.sales[auction_id].liquidated,
+                                              self.sales[auction_id].collateral_to_sell)
+                self.remove_auction(auction_id)
+
+    def remove_auction(self, auction_id):
+        moved_auction = self.active_auctions[self.total_auctions - 1]
+        if auction_id != moved_auction:
+            index = self.sales[auction_id].index
+            self.active_auctions[index] = moved_auction
+            self.active_auctions.remove(self.total_auctions - 1)
+            self.sales[moved_auction].index = index
+        del self.sales[auction_id]
 

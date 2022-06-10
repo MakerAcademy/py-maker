@@ -116,5 +116,9 @@ class LiquidationModule:
                     auction_collateral.auction_cost += tab
                     # variable id is used in event emitting, spot.py is not yet written
                     id = AuctionManager(self.bank, spotter, auction_collateral.liquidator,
-                                        self, ticker, ).kick(tab, delta_collateral_amount, user, address_to_reward)
+                                        abacus, self, ticker).kick(tab, delta_collateral_amount, user, address_to_reward)
                     # the dss code would emit a Bark event here, but events are not implemented in py-maker
+
+    def change_auction_cost(self, collateral_address, amount):
+        self.auction_cost -= amount
+        self.collaterals[collateral_address].auction_cost -= amount
