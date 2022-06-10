@@ -2,7 +2,7 @@ from src.version0.primitives import Ticker, User
 from src.version0.bank_vat import Bank
 from typing import Dict
 import datetime
-from dog import LiquidationModule, AuctionCollateral
+from dog import LiquidationModule
 
 
 class Sale:
@@ -18,8 +18,8 @@ class Sale:
 
 
 class AuctionManager:
-    def __init__(self, bank: Bank, spotter, auction_recipient,
-                 liquidation_module: LiquidationModule, auction_collateral_address: Ticker,):
+    def __init__(self, bank: Bank, spotter, auction_recipient, price_calculator,
+                 liquidation_module: LiquidationModule, auction_collateral_address: Ticker):
         # vat
         self.bank = bank
         # spotter
@@ -28,15 +28,17 @@ class AuctionManager:
         self.liquidation_module = liquidation_module
         # vow
         self.auction_recipient = auction_recipient
+        # AbacusLike (one of the price calculators in abacus.py)
+        self.price_calculator = price_calculator
         # ilk
         self.auction_collateral_address = auction_collateral_address
         # buf
         # note that this is not used here because top/starting_price is not calculated
         self.price_factor = 1
         # tail
-        self.time_before_reset = 1  # it would be nice to insert a real time value here at some point
+        self.time_before_reset = datetime.timedelta(days=1)
         # cusp
-        self.percent_drop_before_reset = 0.1
+        self.percent_drop_before_reset = -0.1
         # chip
         self.percent_incentive = 0.01
         # tip
@@ -44,7 +46,7 @@ class AuctionManager:
         # kicks
         self.total_auctions = 0
         # sales
-        self.sales = {}  # dictionary of indices to Sale
+        self.sales = {}  # dictionary of integer indices to Sale
         # active
         self.active_auctions = []
         # this value is equivalent to chost in dss
@@ -77,3 +79,27 @@ class AuctionManager:
                 incentive = self.flat_incentive + self.percent_incentive * tab
                 self.bank.add_debt(self.auction_recipient, receiver_of_incentives, incentive)
             # the dss would emit a Kick event at this point to document the start of the auction
+
+    # current_time is a stand-in for block.timestamp, although these are not really the same thing
+    def auction_status(self, start_time: datetime.datetime, start_price):
+        price = self.price_calculator.price(start_price, datetime.datetime.now() - start_time)
+        auction_needs_redo = datetime.datetime.now() - start_time > self.time_before_reset or price/start_price < self.percent_drop_before_reset
+        return auction_needs_redo, price
+
+    def reset_auction(self, auction_id: int, receiver_of_incentives: User):
+        start_time = self.sales[auction_id].auction_start_time
+        start_price = self.sales[auction_id].auction_start_price
+        tab = self.sales[auction_id].tab
+        collateral_to_sell = self.sales[auction_id].collateral_to_sell
+        feed_price = self.get_starting_price()
+        new_start_price = feed_price * self.price_factor
+        redo, price = self.auction_status(start_time, start_price)
+        if redo and new_start_price > 0:
+            self.sales[auction_id].auction_start_time = datetime.datetime.now()
+            self.sales[auction_id].auction_start_price = new_start_price
+            if self.percent_incentive > 0 or self.flat_incentive > 0:
+                if tab >= self.minimum_target and collateral_to_sell * feed_price >= self.minimum_target:
+                    incentive = self.flat_incentive + self.percent_incentive * tab
+                    self.bank.add_debt(self.auction_recipient, receiver_of_incentives, incentive)
+
+
