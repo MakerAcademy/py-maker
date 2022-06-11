@@ -2,6 +2,7 @@ from src.version0.primitives import Ticker, User
 from src.version0.bank_vat import Bank
 from typing import Dict
 from clip import AuctionManager
+import abacus
 
 
 # ilk structure within dog.sol
@@ -31,6 +32,8 @@ class LiquidationModule:
         self.max_auction_cost = max_auction_cost
         # DAI needed to cover debt and fees of active auctions
         self.auction_cost = auction_cost
+        # default placeholder abacus for handling the price calculation math in auctions
+        self.abacus = abacus.LinearDecrease(20)
 
     # getter function to return the liquidation penalty for the collateral with the specified Ticker
     # chop function in dss
@@ -116,7 +119,7 @@ class LiquidationModule:
                     auction_collateral.auction_cost += tab
                     # variable id is used in event emitting, spot.py is not yet written
                     id = AuctionManager(self.bank, spotter, auction_collateral.liquidator,
-                                        abacus, self, ticker).kick(tab, delta_collateral_amount, user, address_to_reward)
+                                        self.abacus, self, ticker).start_auction(tab, delta_collateral_amount, user, address_to_reward)
                     # the dss code would emit a Bark event here, but events are not implemented in py-maker
 
     # digs function in dss

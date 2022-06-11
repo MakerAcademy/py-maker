@@ -68,6 +68,7 @@ class AuctionManager:
         single_price_querier = self.spotter.collateral_infos[self.auction_collateral_address].single_price_querier
         return single_price_querier.get_current_feed(self.auction_recipient)
 
+    # kick function in dss
     def start_auction(self, tab: float, collateral_amount: float,
                       receiver_of_leftover_collateral: User, receiver_of_incentives: User):
         starting_price = self.get_starting_price()
@@ -88,6 +89,7 @@ class AuctionManager:
         auction_needs_redo = datetime.datetime.now() - start_time > self.time_before_reset or price/start_price < self.percent_drop_before_reset
         return auction_needs_redo, price
 
+    # redo function in dss
     def reset_auction(self, auction_id: int, receiver_of_incentives: User):
         start_time = self.sales[auction_id].auction_start_time
         start_price = self.sales[auction_id].auction_start_price
@@ -104,6 +106,7 @@ class AuctionManager:
                     incentive = self.flat_incentive + self.percent_incentive * tab
                     self.bank.add_debt(self.auction_recipient, receiver_of_incentives, incentive)
 
+    # take function in dss
     def buy_collateral(self, auction_id: int, collateral_limit: float, max_price: float, receiver_of_collateral: User):
         user = self.sales[auction_id].liquidator
         start_time = self.sales[auction_id].auction_start_time
@@ -150,6 +153,7 @@ class AuctionManager:
                                               self.sales[auction_id].collateral_to_sell)
                 self.remove_auction(auction_id)
 
+    # remove function in dss
     def remove_auction(self, auction_id):
         moved_auction = self.active_auctions[self.total_auctions - 1]
         if auction_id != moved_auction:
@@ -169,6 +173,7 @@ class AuctionManager:
         min_debt = self.bank.collateral_infos[self.auction_collateral_address].min_debt_amt
         self.minimum_target = min_debt * self.liquidation_module.get_liquidation_penalty(self.auction_collateral_address)
 
+    # yank function in dss
     def cancel_auction(self, auction_id: int, user_receiving_auction_collateral: User):
         self.liquidation_module.change_auction_cost(self.auction_collateral_address, self.sales[auction_id].tab)
         # not sure on sender here

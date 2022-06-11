@@ -1,10 +1,7 @@
 
-# these are done if RAY conversion isn't necessary
 class LinearDecrease:
     def __init__(self, max_auction_time):
         self.max_auction_time = max_auction_time
-
-    # RAY type conversion?
 
     def price(self, initial_price, duration):
         if duration >= self.max_auction_time:
