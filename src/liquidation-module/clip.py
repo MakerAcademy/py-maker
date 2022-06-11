@@ -54,6 +54,8 @@ class AuctionManager:
         self.minimum_target = bank.collateral_infos[auction_collateral_address].min_debt_amt * \
             liquidation_module.get_liquidation_penalty(auction_collateral_address)
 
+        self.address = User(hex(id(self)))
+
     @staticmethod
     def auction_requirements(tab, collateral_amount, receiver_of_leftover_collateral, starting_price):
         tab_nonzero = tab > 0
@@ -125,8 +127,12 @@ class AuctionManager:
             self.sales[auction_id].tab = tab - cost
             self.sales[auction_id].collateral_to_sell = collateral_to_sell - purchased
             # not certain on who the sender is for this transfer, and need to replicate functionality of address(this)
+            # pass in address(this) on creation? use memory address of contract as a stand in?
+            # implemented for now as hex code of memory id, which should be unique between different
+            # instances of the same class, but the account associated with that address never actually receives
+            # collateral or debt to transfer
             self.bank.transfer_collateral(self.auction_collateral_address, receiver_of_collateral,
-                                          address(this), receiver_of_collateral, purchased)
+                                          self.address, receiver_of_collateral, purchased)
             # I don't know what this does
             # if (data.length > 0 & & who != address(vat) & & who != address(dog_)) {
             # ClipperCallee(who).clipperCall(msg.sender, owe, slice, data);
@@ -139,7 +145,7 @@ class AuctionManager:
                 self.remove_auction(auction_id)
             elif self.sales[auction_id].tab == 0:
                 # again not sure who the sender should be here
-                self.bank.transfer_collateral(self.auction_collateral_address, address(this), address(this),
+                self.bank.transfer_collateral(self.auction_collateral_address, self.address, self.address,
                                               self.sales[auction_id].liquidated,
                                               self.sales[auction_id].collateral_to_sell)
                 self.remove_auction(auction_id)
@@ -153,3 +159,18 @@ class AuctionManager:
             self.sales[moved_auction].index = index
         del self.sales[auction_id]
 
+    def get_auction_count(self):
+        return self.total_auctions
+
+    def get_active_auctions(self):
+        return self.active_auctions
+
+    def update_minimum_target(self):
+        min_debt = self.bank.collateral_infos[self.auction_collateral_address].min_debt_amt
+        self.minimum_target = min_debt * self.liquidation_module.get_liquidation_penalty(self.auction_collateral_address)
+
+    def cancel_auction(self, auction_id: int, user_receiving_auction_collateral: User):
+        self.liquidation_module.change_auction_cost(self.auction_collateral_address, self.sales[auction_id].tab)
+        # not sure on sender here
+        self.bank.transfer_collateral(self.auction_collateral_address, self.address, self.address,
+                                      user_receiving_auction_collateral, self.sales[auction_id].collateral_to_sell)

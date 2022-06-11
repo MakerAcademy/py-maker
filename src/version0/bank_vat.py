@@ -43,7 +43,7 @@ class CollateralInfo:
 class Bank:
     def __init__(self, loans: Dict[Ticker, Dict[User, Loan]],
                  collateral_infos: Dict[Ticker, CollateralInfo],
-                 bank_is_open: bool, total_debt_issued : float,
+                 bank_is_open: bool, total_debt_issued: float,
                  max_debt_amount: float,
                  approved_loan_modifiers: Dict[User, Dict[User, bool]],
                  who_owns_collateral: Dict[Ticker, Dict[User, float]],
@@ -86,6 +86,7 @@ class Bank:
         # In dss, seized_debt = sin
         self.seized_debt = seized_debt
         self.total_seized_debt = sum(seized_debt.values())
+
 
     # This method checks whether the debt has decreased (the delta - change in - debt
     # is negative)
@@ -319,6 +320,24 @@ class Bank:
     # from the  function file(bytes32 ilk, bytes32 what, uint data) external auth {
     def set_spot_price(self, collateral_type: Ticker, spot_price: float):
         self.collateral_infos[collateral_type].safe_spot_price = spot_price
+
+    # initial implementation to replicate address(this) functionality. right now, a contract will approve of requests
+    # from any sender, and any user will approve of a request from a contract
+    # initiates collateral, debt, and loans with values of zero for both debt and collateral to replicate a new account
+    # for the contract
+    def add_contract_address(self, contract_address: User):
+        for key in self.approved_loan_modifiers:
+            self.approved_loan_modifiers[key][contract_address] = True
+            self.approved_loan_modifiers[contract_address][key] = True
+
+        for key in self.who_owns_collateral:
+            self.who_owns_collateral[key][contract_address] = 0
+
+        self.who_owns_debt[contract_address] = 0
+
+        for key in self.loans:
+            self.loans[key][contract_address] = Loan(0,0)
+
 
     # @staticmethod
     # def loan_is_acceptable(collateral_info, loan):
