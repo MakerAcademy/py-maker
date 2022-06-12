@@ -3,6 +3,7 @@ from src.version0.bank_vat import Bank
 from typing import Dict
 import datetime
 from dog import LiquidationModule
+from src.version0.spot import Spotter
 
 
 class Sale:
@@ -18,7 +19,7 @@ class Sale:
 
 
 class AuctionManager:
-    def __init__(self, bank: Bank, spotter, auction_recipient, price_calculator,
+    def __init__(self, bank: Bank, spotter: Spotter, auction_recipient, price_calculator,
                  liquidation_module: LiquidationModule, auction_collateral_address: Ticker):
         # vat
         self.bank = bank
