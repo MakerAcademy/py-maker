@@ -87,6 +87,18 @@ class Bank:
         self.seized_debt = seized_debt
         self.total_seized_debt = sum(seized_debt.values())
 
+    # these setter methods correspond to the file functions in dss
+    def set_max_debt_amount(self, new_debt: float):
+        self.max_debt_amount = new_debt
+
+    def set_collateral_safe_spot_price(self, ticker: Ticker, new_spot_price: float):
+        self.collateral_infos[ticker].safe_spot_price = new_spot_price
+
+    def set_collateral_max_debt_amount(self, ticker: Ticker, new_max_debt: float):
+        self.collateral_infos[ticker].max_debt_amt = new_max_debt
+
+    def set_collateral_min_debt_amount(self, ticker: Ticker, new_min_debt: float):
+        self.collateral_infos[ticker].min_debt_amt = new_min_debt
 
     # This method checks whether the debt has decreased (the delta - change in - debt
     # is negative)
