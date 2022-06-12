@@ -4,6 +4,7 @@ WAD = 10 ** 18
 
 # vat.sol
 
+
 # In dss, Loan = Urn
 class Loan:
     # When a user creates a loan, they will put up a certain
@@ -16,6 +17,7 @@ class Loan:
         self.collateral_amt = collateral_amt
         # In dss, debt_amt = art
         self.debt_amt = debt_amt
+
 
 # In dss, CollateralInfo = Ilk
 class CollateralInfo:
@@ -38,6 +40,7 @@ class CollateralInfo:
         self.min_debt_amt = min_debt_amt
         # In dss, interest_rate = rate
         self.interest_rate = interest_rate
+
 
 # In the dss, Bank = Vat
 class Bank:
@@ -226,7 +229,6 @@ class Bank:
     #     too_much_debt_in_auctions = self.too_much_auction_debt(collateral_info)
     #     return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
-
     # In dss, this method is equivalent to slip
     def modify_collateral(self, user, collateral_type, delta_collateral_amount):
         self.who_owns_collateral[collateral_type][user] = \
@@ -348,7 +350,7 @@ class Bank:
         self.who_owns_debt[contract_address] = 0
 
         for key in self.loans:
-            self.loans[key][contract_address] = Loan(0,0)
+            self.loans[key][contract_address] = Loan(0, 0)
 
 
     # @staticmethod

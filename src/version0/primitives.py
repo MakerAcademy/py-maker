@@ -80,14 +80,14 @@ class Collateral:
     # Returns True if the transfer was successful, False otherwise
     def transfer(self, sender: User, receiver: User, amount: float) -> bool:
         return self.transfer_from(sender=sender, source_account=sender,
-                                 destination_account=receiver, amount=amount)
+                                  destination_account=receiver, amount=amount)
 
     # Transfers funds from the source account to the destination account if
     # the source account has enough funds to transfer, AND the source account is the
     # sender or has approved more than this amount of funds for the sender.
     # Returns True if the transfer was successful, False otherwise
     def transfer_from(self, sender: User, source_account: User,
-                     destination_account: User, amount: float) -> bool:
+                      destination_account: User, amount: float) -> bool:
         require(necessary_condition=self.balance_of.get(source_account, 0) >= amount,
                 error_message="Affected user doesn't have enough collateral to burn")
         if source_account != sender:

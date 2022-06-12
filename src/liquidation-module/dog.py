@@ -69,8 +69,9 @@ class LiquidationModule:
         return delta_debt_amount <= 2**255 and delta_collateral_amount <= 2**255
 
     # compiling all requirements for liquidate function into one boolean
-    def liquidate_requirements(self, spot_price, collateral_amount, debt_amount, interest_rate, collateral_max_auction_cost,
-                               collateral_auction_cost, delta_collateral_amount, delta_debt_amount):
+    def liquidate_requirements(self, spot_price, collateral_amount, debt_amount, interest_rate,
+                               collateral_max_auction_cost, collateral_auction_cost, delta_collateral_amount,
+                               delta_debt_amount):
         return self.debt_safe(spot_price, collateral_amount, debt_amount, interest_rate) and \
                self.liquidation_limit_not_exceeded(collateral_max_auction_cost, collateral_auction_cost) and \
                self.auction_not_null(delta_collateral_amount) and \
@@ -96,10 +97,10 @@ class LiquidationModule:
         # dust
         min_debt_amount = self.bank.collateral_infos[ticker].min_debt_amt
         # uint256 room = min(Hole - Dirt, milk.hole - milk.dirt);
-        range = min(self.max_auction_cost - self.auction_cost,
-                    auction_collateral.max_auction_cost - auction_collateral.auction_cost)
+        cost_range = min(self.max_auction_cost - self.auction_cost,
+                         auction_collateral.max_auction_cost - auction_collateral.auction_cost)
         # dart = min(art, mul(room, WAD) / rate / milk.chop);
-        delta_debt_amount = min(debt_amount, range/interest_rate/self.get_liquidation_penalty(ticker))  # this has WAD conversion in dss
+        delta_debt_amount = min(debt_amount, cost_range/interest_rate/self.get_liquidation_penalty(ticker))
         if debt_amount > delta_debt_amount:
             passer = False
             if (debt_amount - delta_debt_amount) * interest_rate < min_debt_amount:
@@ -121,8 +122,9 @@ class LiquidationModule:
                     self.auction_cost += tab
                     auction_collateral.auction_cost += tab
                     # variable id is used in event emitting, spot.py is not yet written
-                    id = AuctionManager(self.bank, self.spotter, auction_collateral.liquidator,
-                                        self.abacus, self, ticker).start_auction(tab, delta_collateral_amount, user, address_to_reward)
+                    auction = AuctionManager(self.bank, self.spotter, auction_collateral.liquidator,
+                                             self.abacus, self, ticker).start_auction(tab, delta_collateral_amount,
+                                                                                      user, address_to_reward)
                     # the dss code would emit a Bark event here, but events are not implemented in py-maker
 
     # digs function in dss

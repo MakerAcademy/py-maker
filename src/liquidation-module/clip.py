@@ -1,7 +1,5 @@
-from src.version0.primitives import Ticker, User
+from src.version0.primitives import Ticker, User, get_current_blocktime
 from src.version0.bank_vat import Bank
-from typing import Dict
-import datetime
 from dog import LiquidationModule
 from src.version0.spot import Spotter
 
@@ -37,7 +35,7 @@ class AuctionManager:
         # note that this is not used here because top/starting_price is not calculated
         self.price_factor = 1
         # tail
-        self.time_before_reset = datetime.timedelta(days=1)
+        self.time_before_reset = 123456789
         # cusp
         self.percent_drop_before_reset = -0.1
         # chip
@@ -55,7 +53,9 @@ class AuctionManager:
         self.minimum_target = bank.collateral_infos[auction_collateral_address].min_debt_amt * \
             liquidation_module.get_liquidation_penalty(auction_collateral_address)
 
-        self.address = User(hex(id(self)))
+        self.address = User("AuctionManager: " + hex(id(self)))
+
+        self.bank.add_contract_address(self.address)
 
     @staticmethod
     def auction_requirements(tab, collateral_amount, receiver_of_leftover_collateral, starting_price):
@@ -66,7 +66,8 @@ class AuctionManager:
         return tab_nonzero and collateral_nonzero and receiver_valid and starting_nonzero
 
     def get_starting_price(self):
-        single_price_querier = self.spotter.collateral_infos[self.auction_collateral_address].single_price_querier
+        # the fuck is this line?
+        single_price_querier = self.spotter.collaterals[self.auction_collateral_address].single_price_querier
         return single_price_querier.get_current_feed(self.auction_recipient)
 
     # kick function in dss
@@ -77,7 +78,7 @@ class AuctionManager:
             self.total_auctions += 1
             self.active_auctions.append(self.total_auctions - 1)
             sale = Sale(self.total_auctions, tab, collateral_amount,
-                        receiver_of_leftover_collateral, datetime.datetime.now(), starting_price, self.spotter)
+                        receiver_of_leftover_collateral, get_current_blocktime(), starting_price, self.spotter)
             self.sales[self.total_auctions - 1] = sale
             if self.percent_incentive > 0 or self.flat_incentive > 0:
                 incentive = self.flat_incentive + self.percent_incentive * tab
@@ -85,9 +86,10 @@ class AuctionManager:
             # the dss would emit a Kick event at this point to document the start of the auction
 
     # current_time is a stand-in for block.timestamp, although these are not really the same thing
-    def auction_status(self, start_time: datetime.datetime, start_price):
-        price = self.price_calculator.price(start_price, datetime.datetime.now() - start_time)
-        auction_needs_redo = datetime.datetime.now() - start_time > self.time_before_reset or price/start_price < self.percent_drop_before_reset
+    def auction_status(self, start_time: float, start_price):
+        price = self.price_calculator.price(start_price, get_current_blocktime() - start_time)
+        auction_needs_redo = get_current_blocktime() - start_time > self.time_before_reset or \
+            price/start_price < self.percent_drop_before_reset
         return auction_needs_redo, price
 
     # redo function in dss
@@ -100,7 +102,7 @@ class AuctionManager:
         new_start_price = feed_price * self.price_factor
         redo, price = self.auction_status(start_time, start_price)
         if redo and new_start_price > 0:
-            self.sales[auction_id].auction_start_time = datetime.datetime.now()
+            self.sales[auction_id].auction_start_time = get_current_blocktime()
             self.sales[auction_id].auction_start_price = new_start_price
             if self.percent_incentive > 0 or self.flat_incentive > 0:
                 if tab >= self.minimum_target and collateral_to_sell * feed_price >= self.minimum_target:
@@ -144,7 +146,8 @@ class AuctionManager:
 
             self.bank.transfer_debt(receiver_of_collateral, receiver_of_collateral, self.auction_recipient, cost)
             self.liquidation_module.change_auction_cost(
-                self.auction_collateral_address, self.sales[auction_id].tab + cost if self.sales[auction_id].collateral_to_sell == 0 else cost)
+                self.auction_collateral_address, self.sales[auction_id].tab + cost if
+                self.sales[auction_id].collateral_to_sell == 0 else cost)
             if self.sales[auction_id].collateral_to_sell == 0:
                 self.remove_auction(auction_id)
             elif self.sales[auction_id].tab == 0:
@@ -172,7 +175,8 @@ class AuctionManager:
 
     def update_minimum_target(self):
         min_debt = self.bank.collateral_infos[self.auction_collateral_address].min_debt_amt
-        self.minimum_target = min_debt * self.liquidation_module.get_liquidation_penalty(self.auction_collateral_address)
+        self.minimum_target = min_debt * \
+            self.liquidation_module.get_liquidation_penalty(self.auction_collateral_address)
 
     # yank function in dss
     def cancel_auction(self, auction_id: int, user_receiving_auction_collateral: User):
