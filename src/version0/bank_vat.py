@@ -132,7 +132,9 @@ class Bank:
     @staticmethod
     def acceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan):
         # In dss, this is equivalent to both(dart <= 0, dink >= 0)
-        added_collateral_removed_debt = delta_collateral_amt >= 0 >= delta_debt_amt
+        added_collateral = delta_collateral_amt >= 0
+        removed_debt = 0 >= delta_debt_amt
+        added_collateral_removed_debt = added_collateral and removed_debt
         # In dss, this is equivalent to urn.art = _add(urn.art, dart); and then
         # uint tab = _mul(ilk.rate, urn.art);
         users_tab = (loan.debt_amt + delta_debt_amt) * collateral_info.interest_rate
