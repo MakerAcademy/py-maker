@@ -1,7 +1,7 @@
 from src.version0.primitives import Ticker, User, get_current_blocktime
 from src.version0.bank_vat import Bank
 from dog import LiquidationModule
-from src.version0.spot import Spotter
+from src.version0.all_price_querier import AllCollateralPriceQuerier
 
 
 class Sale:
@@ -17,7 +17,7 @@ class Sale:
 
 
 class AuctionManager:
-    def __init__(self, bank: Bank, spotter: Spotter, auction_recipient, price_calculator,
+    def __init__(self, bank: Bank, spotter: AllCollateralPriceQuerier, auction_recipient, price_calculator,
                  liquidation_module: LiquidationModule, auction_collateral_address: Ticker):
         # vat
         self.bank = bank
@@ -66,9 +66,8 @@ class AuctionManager:
         return tab_nonzero and collateral_nonzero and receiver_valid and starting_nonzero
 
     def get_starting_price(self):
-        # the fuck is this line?
-        single_price_querier = self.spotter.collaterals[self.auction_collateral_address].single_price_querier
-        return single_price_querier.get_current_feed(self.auction_recipient)
+        single_price_querier = self.spotter.collateral_infos[self.auction_collateral_address].single_price_querier
+        return single_price_querier.get_current_feed(self.auction_recipient).spot_price
 
     # kick function in dss
     def start_auction(self, tab: float, collateral_amount: float,

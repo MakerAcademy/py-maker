@@ -3,8 +3,7 @@ from src.version0.bank_vat import Bank
 from typing import Dict
 from clip import AuctionManager
 import abacus
-from src.version0.spot import Spotter
-
+from src.version0.all_price_querier import AllCollateralPriceQuerier
 
 # ilk structure within dog.sol
 class AuctionCollateral:
@@ -22,7 +21,7 @@ class AuctionCollateral:
 # dog contract in dss
 class LiquidationModule:
     def __init__(self, bank: Bank, collaterals: Dict[Ticker, AuctionCollateral],
-                 debt_engine, max_auction_cost: float, auction_cost: float, spotter: Spotter):
+                 debt_engine, max_auction_cost: float, auction_cost: float, spotter: AllCollateralPriceQuerier):
         # dog module takes in a vat/bank
         self.bank = bank
         # dictionary of collateral addresses to AuctionCollateral
