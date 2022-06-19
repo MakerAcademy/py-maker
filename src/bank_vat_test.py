@@ -56,7 +56,6 @@ class TestStatics(unittest.TestCase):
 
 
 class TestBank(unittest.TestCase):
-
     def test_requirements(self):
         user1 = User("Jimmy")
         user2 = User("Jerry")
@@ -65,7 +64,7 @@ class TestBank(unittest.TestCase):
         ticker2 = Ticker("BTC")
         approved_loan_modifiers = {user1: {user1: True, user2: False, user3: False},
                                    user2: {user1: True, user2: True, user3: False},
-                                   user3: {user1: False, user2: True, user3: True}}
+                                   user3: {user1: False, user2: True, user3: False}}
         loans = {ticker1: {user1: Loan(1.0, 1.0), user2: Loan(0.0, 0.0), user3: Loan(2.0, 1.0)},
                  ticker2: {user1: Loan(0.0, 0.0), user2: Loan(0.5, 1.0), user3: Loan(100.0, 20.0)}}
         collateral_infos = {ticker1: CollateralInfo(1.0, 2.0, 30.0, 0.1, 1.0),
@@ -76,7 +75,39 @@ class TestBank(unittest.TestCase):
         seized_debt = {user1: 0.0, user2: 0.0, user3: 20.0}
         bank = Bank(loans, collateral_infos, True, 23.0, 500.0, approved_loan_modifiers,
                     who_owns_collateral, who_owns_debt, seized_debt)
+        # below_max_debt
         self.assertTrue(bank.below_max_debt(1.0, bank.collateral_infos[ticker1]))
+        self.assertFalse(bank.below_max_debt(300.0, bank.collateral_infos[ticker1]))
+
+        # sender_not_malicious
+        self.assertTrue(bank.sender_not_malicious(user1, user2, -1.0, 1.0))
+        self.assertTrue(bank.sender_not_malicious(user2, user1, 1.0, -1.0))
+        self.assertFalse(bank.sender_not_malicious(user1, user2, 1.0, -1.0))
+
+        # sender_consent
+        self.assertTrue(bank.sender_consent(user1, user2, -1.0))
+        self.assertTrue(bank.sender_consent(user1, user2, 1.0))
+        self.assertTrue(bank.sender_consent(user2, user1, -1.0))
+        self.assertFalse(bank.sender_consent(user2, user1, 1.0))
+
+        # loan_user_consent
+        self.assertTrue(bank.loan_user_consent(user1, -1.0))
+        self.assertTrue(bank.loan_user_consent(user3, 1.0))
+        self.assertFalse(bank.loan_user_consent(user3, -1.0))
+
+        # acceptable modification
+        self.assertTrue(bank.acceptable_modification(-1.0, 1.0, collateral_infos[ticker1], loans[ticker1][user1],
+                                                     user1, user1))
+        self.assertFalse(bank.acceptable_modification(1.0, 1.0, collateral_infos[ticker1], loans[ticker1][user1],
+                                                      user1, user2))
+
+        # modify_loan
+        bank.modify_loan(ticker1, 1.0, -0.1, user1, user1)
+        self.assertTrue(bank.loans[ticker1][user1].collateral_amt == 2.0)
+        self.assertTrue(bank.loans[ticker1][user1].debt_amt == 0.9)
+        self.assertTrue(bank.collateral_infos[ticker1].total_debt_amt == 1.9)
+        bank.modify_loan(ticker1, -1.0, 1.0, user3, user3)
+        self.assertFalse(bank.loans[ticker1][user3].collateral_amt != 2.0)
 
 
 if __name__ == '__main__':

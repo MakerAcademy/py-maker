@@ -174,7 +174,8 @@ class Bank:
         return new_debt_amt == 0 or new_debt_amt * collateral_info.interest_rate >= collateral_info.min_debt_amt
 
     # This method is essentially all require statements from frob in dss grouped up into one function
-    def acceptable_modification(self, delta_debt_amt, delta_collateral_amt, collateral_info, loan, sender, user):
+    def acceptable_modification(self, delta_debt_amt: float, delta_collateral_amt: float, collateral_info:
+                                CollateralInfo, loan: Loan, sender: User, user: User):
         debt_amt_is_safe = self.debt_has_decreased(delta_debt_amt) or \
                              self.below_max_debt(delta_debt_amt, collateral_info)
         user_has_acceptable_loan = self.acceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan)
@@ -186,7 +187,7 @@ class Bank:
             and loan_user_consent and debt_safe_loan and self.bank_is_open
 
     # In dss, this method is equivalent to frob
-    def modify_loan(self, collateral_type, delta_collateral_amt, delta_debt_amt, user, sender):
+    def modify_loan(self, collateral_type: Ticker, delta_collateral_amt: float, delta_debt_amt: float, user: User, sender: User):
         # In dss, this is equivalent to Ilk memory ilk = ilks[i];
         collateral_info = self.collateral_infos[collateral_type]
         # In dss, this is equivalent to Urn memory urn = urns[i][u];
