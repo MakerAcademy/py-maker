@@ -233,7 +233,7 @@ class Bank:
     #     return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
     # In dss, this method is equivalent to slip
-    def modify_collateral(self, user, collateral_type, delta_collateral_amount):
+    def modify_collateral(self, user: User, collateral_type: Ticker, delta_collateral_amount: float):
         self.who_owns_collateral[collateral_type][user] = \
             self.who_owns_collateral[collateral_type][user] + delta_collateral_amount
 
