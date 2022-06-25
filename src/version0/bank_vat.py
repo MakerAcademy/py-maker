@@ -130,7 +130,8 @@ class Bank:
     # In dss, it is equivalent to this require statement from the function frob
     # require(either(both(dart <= 0, dink >= 0), tab <= _mul(urn.ink, ilk.spot)), "Vat/not-safe");
     @staticmethod
-    def acceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan):
+    def acceptable_loan(delta_debt_amt: float, delta_collateral_amt: float,
+                        collateral_info: CollateralInfo, loan: Loan) -> bool:
         # In dss, this is equivalent to both(dart <= 0, dink >= 0)
         added_collateral = delta_collateral_amt >= 0
         removed_debt = 0 >= delta_debt_amt
@@ -149,7 +150,8 @@ class Bank:
     # his balance.
     # In dss, this method is equivalent to this require statement from the function frob
     # require(either(both(dart <= 0, dink >= 0), wish(u, msg.sender)), "Vat/not-allowed-u");
-    def sender_not_malicious(self, sender, user, delta_debt_amt, delta_collateral_amt):
+    def sender_not_malicious(self, sender: User, user: User,
+                             delta_debt_amt: float, delta_collateral_amt: float) -> bool:
         # In dss, this is equivalent to wish(u, msg.sender)
         approved_modifier = self.approved_loan_modifiers[sender][user]
         # In dss, this is equivalent to both(dart <= 0, dink >= 0)
@@ -158,24 +160,24 @@ class Bank:
 
     # In dss, this method is equivalent to this require statement from the function frob
     # require(either(dink <= 0, wish(v, msg.sender)), "Vat/not-allowed-v");
-    def sender_consent(self, user, sender, delta_collateral_amt):
+    def sender_consent(self, user: User, sender: User, delta_collateral_amt: float) -> bool:
         return delta_collateral_amt <= 0 or self.approved_loan_modifiers[sender][user]
 
     # In dss, this method is equivalent to this require statement from the function frob
     # require(either(dart >= 0, wish(w, msg.sender)), "Vat/not-allowed-w");
-    def loan_user_consent(self, sender, delta_debt_amt):
+    def loan_user_consent(self, sender: User, delta_debt_amt: float) -> bool:
         return delta_debt_amt >= 0 or self.approved_loan_modifiers[sender][sender]
 
     # In dss, this method is equivalent to this require statement from the function frob
     # require(either(urn.art == 0, tab >= ilk.dust), "Vat/dust");
     @staticmethod
-    def debt_safe_loan(loan, delta_debt_amt, collateral_info):
+    def debt_safe_loan(loan: Loan, delta_debt_amt: float, collateral_info: CollateralInfo) -> bool:
         new_debt_amt = loan.debt_amt + delta_debt_amt
         return new_debt_amt == 0 or new_debt_amt * collateral_info.interest_rate >= collateral_info.min_debt_amt
 
     # This method is essentially all require statements from frob in dss grouped up into one function
     def acceptable_modification(self, delta_debt_amt: float, delta_collateral_amt: float, collateral_info:
-                                CollateralInfo, loan: Loan, sender: User, user: User):
+                                CollateralInfo, loan: Loan, sender: User, user: User) -> bool:
         debt_amt_is_safe = self.debt_has_decreased(delta_debt_amt) or \
                              self.below_max_debt(delta_debt_amt, collateral_info)
         user_has_acceptable_loan = self.acceptable_loan(delta_debt_amt, delta_collateral_amt, collateral_info, loan)
@@ -187,7 +189,8 @@ class Bank:
             and loan_user_consent and debt_safe_loan and self.bank_is_open
 
     # In dss, this method is equivalent to frob
-    def modify_loan(self, collateral_type: Ticker, delta_collateral_amt: float, delta_debt_amt: float, user: User, sender: User):
+    def modify_loan(self, collateral_type: Ticker, delta_collateral_amt: float,
+                    delta_debt_amt: float, user: User, sender: User) -> None:
         # In dss, this is equivalent to Ilk memory ilk = ilks[i];
         collateral_info = self.collateral_infos[collateral_type]
         # In dss, this is equivalent to Urn memory urn = urns[i][u];
@@ -201,7 +204,8 @@ class Bank:
             # In dss, this is equivalent to ilk.Art = _add(ilk.Art, dart);
             collateral_info.total_debt_amt += delta_debt_amt
             # In dss, this is equivalent to gem[i][v] = _sub(gem[i][v], dink);
-            self.who_owns_collateral[collateral_type][sender] = self.who_owns_collateral[collateral_type][sender] - delta_collateral_amt
+            self.who_owns_collateral[collateral_type][sender] = self.who_owns_collateral[collateral_type][sender]\
+                - delta_collateral_amt
             # In dss, this is equivalent to dai[w]    = _add(dai[w],    dtab);
             self.who_owns_debt[user] = self.who_owns_debt[user] + (collateral_info.interest_rate * delta_debt_amt)
             # The below isn't needed because "=" copies by reference in python, not by value
@@ -233,13 +237,13 @@ class Bank:
     #     return loan_is_safe or too_much_debt_in_auctions or self.bank_is_closed
 
     # In dss, this method is equivalent to slip
-    def modify_collateral(self, user: User, collateral_type: Ticker, delta_collateral_amount: float):
+    def modify_collateral(self, user: User, collateral_type: Ticker, delta_collateral_amount: float) -> None:
         self.who_owns_collateral[collateral_type][user] = \
             self.who_owns_collateral[collateral_type][user] + delta_collateral_amount
 
     # In dss, this method is equivalent to flux
     # Sender here refers to the transaction creator
-    def transfer_collateral(self, collateral_type, sender, user1, user2, delta_collateral_amount):
+    def transfer_collateral(self, collateral_type, sender, user1, user2, delta_collateral_amount) -> None:
         if self.approved_loan_modifiers[user1][sender]:
             self.who_owns_collateral[collateral_type][user1] -= delta_collateral_amount
             self.who_owns_collateral[collateral_type][user2] += delta_collateral_amount
@@ -254,14 +258,14 @@ class Bank:
     # In dss, this is equivalent to this require statement in the fork function
     # Sender here refers to the transaction creator
     # require(both(wish(src, msg.sender), wish(dst, msg.sender)), "Vat/not-allowed");
-    def sender_and_receiver_consent(self, sender, user1, user2):
+    def sender_and_receiver_consent(self, sender, user1, user2) -> bool:
         return self.approved_loan_modifiers[user1][sender] and self.approved_loan_modifiers[user2][sender]
 
     # In dss, this is equivalent to this require statement in the fork function
     # require(utab <= _mul(u.ink, i.spot), "Vat/not-safe-src");
     # require(vtab <= _mul(v.ink, i.spot), "Vat/not-safe-dst");
     @staticmethod
-    def both_sides_safe(user1_tab, user2_tab, sender_collateral_amount, receiver_collateral_amount, spot_price):
+    def both_sides_safe(user1_tab, user2_tab, sender_collateral_amount, receiver_collateral_amount, spot_price) -> bool:
         sender_safe = user1_tab <= sender_collateral_amount * spot_price
         receiver_safe = user2_tab <= receiver_collateral_amount * spot_price
         return sender_safe and receiver_safe
@@ -270,13 +274,13 @@ class Bank:
     # require(either(utab >= i.dust, u.art == 0), "Vat/dust-src");
     # require(either(vtab >= i.dust, v.art == 0), "Vat/dust-dst");
     @staticmethod
-    def check_minimum_debt(user1_tab, user2_tab, minimum_debt, sender_debt_amount, receiver_debt_amount):
+    def check_minimum_debt(user1_tab, user2_tab, minimum_debt, sender_debt_amount, receiver_debt_amount) -> bool:
         sender_not_dusty = user1_tab >= minimum_debt or sender_debt_amount == 0
         receiver_not_dusty = user2_tab >= minimum_debt or receiver_debt_amount == 0
         return sender_not_dusty and receiver_not_dusty
 
     # In dss, this is equivalent to the fork function
-    def split_loan(self, sender, user1, user2, collateral_type, delta_debt_amount, delta_collateral_amount):
+    def split_loan(self, sender, user1, user2, collateral_type, delta_debt_amount, delta_collateral_amount) -> None:
         user1_loan = self.loans[collateral_type][user1]
         user2_loan = self.loans[collateral_type][user2]
         collateral_info = self.collateral_infos[collateral_type]
@@ -299,7 +303,7 @@ class Bank:
 
     # In dss, this is equivalent to the grab function
     # implement authorization for this function
-    def seize_debt(self, collateral_type, user1, user2, user3, delta_collateral_amount, delta_debt_amount):
+    def seize_debt(self, collateral_type, user1, user2, user3, delta_collateral_amount, delta_debt_amount) -> None:
         user1_loan = self.loans[collateral_type][user1]
         collateral_info = self.collateral_infos[collateral_type]
         user1_loan.collateral_amt += delta_collateral_amount
@@ -311,7 +315,7 @@ class Bank:
         self.total_seized_debt -= delta_tab  # shouldn't these three lines be +=?
 
     # In dss, this is equivalent to the heal function
-    def settle_debt(self, sender, amount):
+    def settle_debt(self, sender, amount) -> None:
         self.seized_debt[sender] -= amount
         self.who_owns_debt[sender] -= amount
         self.total_seized_debt -= amount
@@ -319,7 +323,7 @@ class Bank:
 
     # In dss, this is equivalent to the suck function
     # implement authorization for this function
-    def add_debt(self, user1, user2, amount):
+    def add_debt(self, user1, user2, amount) -> None:
         self.seized_debt[user1] += amount
         self.who_owns_debt[user2] += amount
         self.total_seized_debt += amount
@@ -327,22 +331,24 @@ class Bank:
 
     # In dss, this is equivalent to the fold function
     # implement authorization for this function
-    def modify_interest_rate(self, collateral_type, user, delta_collateral_interest_rate):
+    def modify_interest_rate(self, collateral_type, user, delta_collateral_interest_rate) -> None:
         self.collateral_infos[collateral_type].interest_rate += delta_collateral_interest_rate
-        self.who_owns_debt[user] += self.collateral_infos[collateral_type].total_debt_amt * delta_collateral_interest_rate
+        self.who_owns_debt[user] += \
+            self.collateral_infos[collateral_type].total_debt_amt * delta_collateral_interest_rate
         self.total_debt_issued += self.collateral_infos[collateral_type].total_debt_amt * delta_collateral_interest_rate
 
     # In dss, this is basically equivalent to the following line
     # if (what == "spot") ilks[ilk].spot = data;
     # from the  function file(bytes32 ilk, bytes32 what, uint data) external auth {
-    def set_spot_price(self, collateral_type: Ticker, spot_price: float):
+    def set_spot_price(self, collateral_type: Ticker, spot_price: float) -> None:
         self.collateral_infos[collateral_type].safe_spot_price = spot_price
 
     # initial implementation to replicate address(this) functionality. right now, a contract will approve of requests
     # from any sender, and any user will approve of a request from a contract
     # initiates collateral, debt, and loans with values of zero for both debt and collateral to replicate a new account
     # for the contract
-    def add_contract_address(self, contract_address: User):
+    def add_contract_address(self, contract_address: User) -> None:
+        self.approved_loan_modifiers[contract_address] = {}
         for key in self.approved_loan_modifiers:
             self.approved_loan_modifiers[key][contract_address] = True
             self.approved_loan_modifiers[contract_address][key] = True
@@ -351,6 +357,7 @@ class Bank:
             self.who_owns_collateral[key][contract_address] = 0
 
         self.who_owns_debt[contract_address] = 0
+        self.seized_debt[contract_address] = 0.0
 
         for key in self.loans:
             self.loans[key][contract_address] = Loan(0, 0)

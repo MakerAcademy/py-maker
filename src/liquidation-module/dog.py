@@ -39,38 +39,38 @@ class LiquidationModule:
 
     # getter function to return the liquidation penalty for the collateral with the specified Ticker
     # chop function in dss
-    def get_liquidation_penalty(self, ticker):
+    def get_liquidation_penalty(self, ticker: Ticker):
         return self.collaterals[ticker].liquidation_penalty
 
     # require(spot > 0 && mul(ink, spot) < mul(art, rate), "Dog/not-unsafe");
     @staticmethod
-    def debt_safe(spot_price, collateral_amount, debt_amount, interest_rate):
+    def debt_safe(spot_price: float, collateral_amount: float, debt_amount: float, interest_rate: float):
         return spot_price > 0 and collateral_amount * spot_price < debt_amount * interest_rate
 
     # require(Hole > Dirt & & milk.hole > milk.dirt, "Dog/liquidation-limit-hit");
-    def liquidation_limit_not_exceeded(self, collateral_max_auction_cost, collateral_auction_cost):
+    def liquidation_limit_not_exceeded(self, collateral_max_auction_cost: float, collateral_auction_cost: float):
         return self.max_auction_cost > self.auction_cost and collateral_max_auction_cost > collateral_auction_cost
 
     # require(mul(dart, rate) >= dust, "Dog/dusty-auction-from-partial-liquidation");
     @staticmethod
-    def auction_not_dusty(delta_debt_amount, interest_rate, min_debt_amount):
+    def auction_not_dusty(delta_debt_amount: float, interest_rate: float, min_debt_amount: float):
         return delta_debt_amount * interest_rate >= min_debt_amount
 
     # require(dink > 0, "Dog/null-auction");
     @staticmethod
-    def auction_not_null(delta_collateral_amount):
+    def auction_not_null(delta_collateral_amount: float):
         return delta_collateral_amount > 0
 
     # probably don't need to make this check in python
     # require(dart <= 2**255 && dink <= 2**255, "Dog/overflow");
     @staticmethod
-    def no_overflow(delta_debt_amount, delta_collateral_amount):
+    def no_overflow(delta_debt_amount: float, delta_collateral_amount: float):
         return delta_debt_amount <= 2**255 and delta_collateral_amount <= 2**255
 
     # compiling all requirements for liquidate function into one boolean
-    def liquidate_requirements(self, spot_price, collateral_amount, debt_amount, interest_rate,
-                               collateral_max_auction_cost, collateral_auction_cost, delta_collateral_amount,
-                               delta_debt_amount):
+    def liquidate_requirements(self, spot_price: float, collateral_amount: float, debt_amount: float,
+                               interest_rate: float, collateral_max_auction_cost: float, collateral_auction_cost: float,
+                               delta_collateral_amount: float, delta_debt_amount: float):
         return self.debt_safe(spot_price, collateral_amount, debt_amount, interest_rate) and \
                self.liquidation_limit_not_exceeded(collateral_max_auction_cost, collateral_auction_cost) and \
                self.auction_not_null(delta_collateral_amount) and \
@@ -127,6 +127,6 @@ class LiquidationModule:
                     # the dss code would emit a Bark event here, but events are not implemented in py-maker
 
     # digs function in dss
-    def change_auction_cost(self, collateral_address, amount):
+    def change_auction_cost(self, collateral_address: Ticker, amount: float):
         self.auction_cost -= amount
         self.collaterals[collateral_address].auction_cost -= amount

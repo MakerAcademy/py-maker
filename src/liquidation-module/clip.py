@@ -17,7 +17,7 @@ class Sale:
 
 
 class AuctionManager:
-    def __init__(self, bank: Bank, spotter: AllCollateralPriceQuerier, auction_recipient, price_calculator,
+    def __init__(self, bank: Bank, spotter: AllCollateralPriceQuerier, auction_recipient: User, price_calculator,
                  liquidation_module: LiquidationModule, auction_collateral_address: Ticker):
         # vat
         self.bank = bank
@@ -58,7 +58,8 @@ class AuctionManager:
         self.bank.add_contract_address(self.address)
 
     @staticmethod
-    def auction_requirements(tab, collateral_amount, receiver_of_leftover_collateral, starting_price):
+    def auction_requirements(tab: float, collateral_amount: float,
+                             receiver_of_leftover_collateral: User, starting_price: float):
         tab_nonzero = tab > 0
         collateral_nonzero = collateral_amount > 0
         receiver_valid = receiver_of_leftover_collateral.name != ''
@@ -85,7 +86,7 @@ class AuctionManager:
             # the dss would emit a Kick event at this point to document the start of the auction
 
     # current_time is a stand-in for block.timestamp, although these are not really the same thing
-    def auction_status(self, start_time: float, start_price):
+    def auction_status(self, start_time: float, start_price: float):
         price = self.price_calculator.price(start_price, get_current_blocktime() - start_time)
         auction_needs_redo = get_current_blocktime() - start_time > self.time_before_reset or \
             price/start_price < self.percent_drop_before_reset
@@ -157,7 +158,7 @@ class AuctionManager:
                 self.remove_auction(auction_id)
 
     # remove function in dss
-    def remove_auction(self, auction_id):
+    def remove_auction(self, auction_id: int):
         moved_auction = self.active_auctions[self.total_auctions - 1]
         if auction_id != moved_auction:
             index = self.sales[auction_id].index

@@ -158,8 +158,73 @@ class TestBank(unittest.TestCase):
         self.assertTrue(bank.sender_and_receiver_consent(user1, user1, user2))
         self.assertFalse(bank.sender_and_receiver_consent(user1, user1, user3))
 
-        #
+        user1 = User("Jimmy")
+        user2 = User("Jerry")
+        user3 = User("Johnny")
+        ticker1 = Ticker("ETH")
+        ticker2 = Ticker("BTC")
+        approved_loan_modifiers = {user1: {user1: True, user2: False, user3: True},
+                                   user2: {user1: True, user2: True, user3: False},
+                                   user3: {user1: False, user2: True, user3: True}}
+        loans = {ticker1: {user1: Loan(1.0, 1.0), user2: Loan(0.0, 0.0), user3: Loan(2.0, 2.0)},
+                 ticker2: {user1: Loan(0.0, 0.0), user2: Loan(0.5, 1.0), user3: Loan(100.0, 20.0)}}
+        collateral_infos = {ticker1: CollateralInfo(1.0, 2.0, 30.0, 0.1, 1.0),
+                            ticker2: CollateralInfo(2.0, 21.0, 200.0, 0.5, 5.0)}
+        who_owns_collateral = {ticker1: {user1: 2.0, user2: 0.0, user3: 1.0},
+                               ticker2: {user1: 0.0, user2: 2.0, user3: 200.0}}
+        who_owns_debt = {user1: 20, user2: 5, user3: 400}
+        seized_debt = {user1: 0.0, user2: 0.0, user3: 20.0}
+        newBank = Bank(loans, collateral_infos, True, 23.0, 500.0, approved_loan_modifiers,
+                       who_owns_collateral, who_owns_debt, seized_debt)
 
+        # split_loan
+        newBank.split_loan(user2, user3, user2, ticker1, 1.0, 1.0)
+        self.assertTrue(newBank.loans[ticker1][user3].collateral_amt == 1.0)
+        self.assertTrue(newBank.loans[ticker1][user3].debt_amt == 1.0)
+        newBank.split_loan(user1, user1, user3, ticker2, 1.0, 1.0)
+        self.assertFalse(newBank.loans[ticker1][user3].collateral_amt == 2.0)
+        self.assertFalse(newBank.loans[ticker1][user3].debt_amt == 2.0)
+
+        # seize_debt
+        newBank.seize_debt(ticker1, user1, user2, user3, -1.0, -1.0)
+        self.assertTrue(newBank.total_seized_debt == 21.0)
+        self.assertTrue(newBank.seized_debt[user3] == 21.0)
+        self.assertTrue(newBank.who_owns_collateral[ticker1][user2] == 1.0)
+
+        # settle_debt
+        newBank.settle_debt(user3, 1.0)
+        self.assertTrue(newBank.seized_debt[user3] == 20.0)
+        self.assertTrue(newBank.total_seized_debt == 20.0)
+        self.assertTrue(newBank.total_debt_issued == 22.0)
+        self.assertTrue(newBank.who_owns_debt[user3] == 399.0)
+
+        # add_debt
+        newBank.add_debt(user3, user3, 1.0)
+        self.assertTrue(newBank.seized_debt[user3] == 21.0)
+        self.assertTrue(newBank.total_seized_debt == 21.0)
+        self.assertTrue(newBank.total_debt_issued == 23.0)
+        self.assertTrue(newBank.who_owns_debt[user3] == 400.0)
+
+        # take second look at this one
+        # modify_interest_rate
+        newBank.modify_interest_rate(ticker1, user1, 1.0)
+        rate = newBank.collateral_infos[ticker1].interest_rate
+        self.assertTrue(rate == 2.0)
+        self.assertTrue(newBank.who_owns_debt[user1] == 21.0)
+        self.assertTrue(newBank.total_debt_issued == 24.0)
+
+        # set_spot_price
+        newBank.set_spot_price(ticker1, 21.0)
+        self.assertTrue(newBank.collateral_infos[ticker1].safe_spot_price == 21.0)
+
+        # add_contract_address
+        newUser = User('Terrence')
+        newBank.add_contract_address(newUser)
+        self.assertTrue(newBank.approved_loan_modifiers[user1][newUser] is True)
+        self.assertTrue(newBank.seized_debt[newUser] == 0.0)
+        self.assertTrue(newBank.approved_loan_modifiers[newUser][user1] is True)
+        self.assertTrue(newBank.loans[ticker1][newUser].debt_amt == 0)
+        self.assertTrue(newBank.loans[ticker1][newUser].collateral_amt == 0)
 
 if __name__ == '__main__':
     print("Testing...")
