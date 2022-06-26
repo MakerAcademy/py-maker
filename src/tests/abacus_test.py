@@ -1,6 +1,6 @@
 import math
 
-from abacus import LinearDecrease, ExponentialDecrease, StairstepExponentialDecrease
+from src.liquidation_module.abacus import LinearDecrease, ExponentialDecrease, StairstepExponentialDecrease
 import unittest
 
 
