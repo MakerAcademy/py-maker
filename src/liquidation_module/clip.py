@@ -1,7 +1,134 @@
 from src.version0.primitives import Ticker, User, get_current_blocktime
 from src.version0.bank_vat import Bank
-from dog import LiquidationModule
+from typing import Dict
+from src.liquidation_module import abacus
 from src.version0.all_price_querier import AllCollateralPriceQuerier
+# dog.py
+
+# ilk structure within dog.sol
+class AuctionCollateral:
+    def __init__(self, liquidator: User, liquidation_penalty: float, max_auction_cost: float, auction_cost: float):
+        # an address pointing to the liquidating user
+        self.liquidator = liquidator
+        # current liquidation penalty
+        self.liquidation_penalty = liquidation_penalty
+        # max DAI needed to cover debt and fees of active auctions per collateral
+        self.max_auction_cost = max_auction_cost
+        # DAI needed to cover debt and fees of active auctions per collateral
+        self.auction_cost = auction_cost
+
+# dog contract in dss
+class LiquidationModule:
+    def __init__(self, bank: Bank, collaterals: Dict[Ticker, AuctionCollateral],
+                 debt_engine, max_auction_cost: float, auction_cost: float, spotter: AllCollateralPriceQuerier):
+        # dog module takes in a vat/bank
+        self.bank = bank
+        # dictionary of collateral addresses to AuctionCollateral
+        self.collaterals = collaterals
+        # debt engine module / vow in dss
+        self.debt_engine = debt_engine
+        # max DAI needed to cover debt and fees of active auctions
+        self.max_auction_cost = max_auction_cost
+        # DAI needed to cover debt and fees of active auctions
+        self.auction_cost = auction_cost
+        # default placeholder abacus for handling the price calculation math in auctions
+        self.abacus = abacus.LinearDecrease(20)
+        # spotter used in liquidation
+        self.spotter = spotter
+
+    # getter function to return the liquidation penalty for the collateral with the specified Ticker
+    # chop function in dss
+    def get_liquidation_penalty(self, ticker: Ticker):
+        return self.collaterals[ticker].liquidation_penalty
+
+    # require(spot > 0 && mul(ink, spot) < mul(art, rate), "Dog/not-unsafe");
+    @staticmethod
+    def debt_safe(spot_price: float, collateral_amount: float, debt_amount: float, interest_rate: float):
+        return spot_price > 0 and collateral_amount * spot_price < debt_amount * interest_rate
+
+    # require(Hole > Dirt & & milk.hole > milk.dirt, "Dog/liquidation-limit-hit");
+    def liquidation_limit_not_exceeded(self, collateral_max_auction_cost: float, collateral_auction_cost: float):
+        return self.max_auction_cost > self.auction_cost and collateral_max_auction_cost > collateral_auction_cost
+
+    # require(mul(dart, rate) >= dust, "Dog/dusty-auction-from-partial-liquidation");
+    @staticmethod
+    def auction_not_dusty(delta_debt_amount: float, interest_rate: float, min_debt_amount: float):
+        return delta_debt_amount * interest_rate >= min_debt_amount
+
+    # require(dink > 0, "Dog/null-auction");
+    @staticmethod
+    def auction_not_null(delta_collateral_amount: float):
+        return delta_collateral_amount > 0
+
+    # probably don't need to make this check in python
+    # require(dart <= 2**255 && dink <= 2**255, "Dog/overflow");
+    @staticmethod
+    def no_overflow(delta_debt_amount: float, delta_collateral_amount: float):
+        return delta_debt_amount <= 2**255 and delta_collateral_amount <= 2**255
+
+    # compiling all requirements for liquidate function into one boolean
+    def liquidate_requirements(self, spot_price: float, collateral_amount: float, debt_amount: float,
+                               interest_rate: float, collateral_max_auction_cost: float, collateral_auction_cost: float,
+                               delta_collateral_amount: float, delta_debt_amount: float):
+        return self.debt_safe(spot_price, collateral_amount, debt_amount, interest_rate) and \
+               self.liquidation_limit_not_exceeded(collateral_max_auction_cost, collateral_auction_cost) and \
+               self.auction_not_null(delta_collateral_amount) and \
+               self.no_overflow(delta_debt_amount, delta_collateral_amount)
+
+    # function to liquidate a loan and start a Dutch auction
+    # sells collateral for DAI
+    # address_to_reward is the loan address to give the liquidation reward to, if any
+    # bark function in dss
+    def liquidate(self, ticker: Ticker, user: User, address_to_reward: User):
+        # vat.urns(ilk, urn)
+        loan = self.bank.loans[ticker][user]
+        # ink
+        collateral_amount = loan.collateral_amt
+        # art
+        debt_amount = loan.debt_amt
+        # milk
+        auction_collateral = self.collaterals[ticker]
+        # rate
+        interest_rate = self.bank.collateral_infos[ticker].interest_rate
+        # spot
+        safe_spot = self.bank.collateral_infos[ticker].safe_spot_price
+        # dust
+        min_debt_amount = self.bank.collateral_infos[ticker].min_debt_amt
+        # uint256 room = min(Hole - Dirt, milk.hole - milk.dirt);
+        cost_range = min(self.max_auction_cost - self.auction_cost,
+                         auction_collateral.max_auction_cost - auction_collateral.auction_cost)
+        # dart = min(art, mul(room, WAD) / rate / milk.chop);
+        delta_debt_amount = min(debt_amount, cost_range/interest_rate/self.get_liquidation_penalty(ticker))
+        if debt_amount > delta_debt_amount:
+            passer = False
+            if (debt_amount - delta_debt_amount) * interest_rate < min_debt_amount:
+                # total liquidation to prevent falling below minimum debt amount
+                delta_debt_amount = debt_amount
+                passer = True
+            if self.auction_not_dusty(delta_debt_amount, interest_rate, min_debt_amount) or passer:
+                delta_collateral_amount = collateral_amount * delta_debt_amount / debt_amount
+                if self.liquidate_requirements(safe_spot, collateral_amount, debt_amount, interest_rate,
+                                               auction_collateral.max_auction_cost, auction_collateral.auction_cost,
+                                               delta_collateral_amount, delta_debt_amount):
+                    # grab
+                    self.bank.seize_debt(ticker, user, auction_collateral.liquidator, self.debt_engine,
+                                         -delta_collateral_amount, -delta_debt_amount)
+                    due = delta_debt_amount * interest_rate
+                    # vow.fess(due) in dss. function name will change when vow.py is written
+                    self.debt_engine.fess(due)
+                    tab = due * self.get_liquidation_penalty(ticker)
+                    self.auction_cost += tab
+                    auction_collateral.auction_cost += tab
+                    # variable id is used in event emitting, spot.py is not yet written
+                    auction = AuctionManager(self.bank, self.spotter, auction_collateral.liquidator,
+                                             self.abacus, self, ticker).start_auction(tab, delta_collateral_amount,
+                                                                                      user, address_to_reward)
+                    # the dss code would emit a Bark event here, but events are not implemented in py-maker
+
+    # digs function in dss
+    def change_auction_cost(self, collateral_address: Ticker, amount: float):
+        self.auction_cost -= amount
+        self.collaterals[collateral_address].auction_cost -= amount
 
 
 class Sale:
@@ -184,3 +311,7 @@ class AuctionManager:
         # not sure on sender here
         self.bank.transfer_collateral(self.auction_collateral_address, self.address, self.address,
                                       user_receiving_auction_collateral, self.sales[auction_id].collateral_to_sell)
+
+
+
+
