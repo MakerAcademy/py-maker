@@ -348,6 +348,7 @@ class Bank:
     # initiates collateral, debt, and loans with values of zero for both debt and collateral to replicate a new account
     # for the contract
     def add_contract_address(self, contract_address: User) -> None:
+
         self.approved_loan_modifiers[contract_address] = {}
         for key in self.approved_loan_modifiers:
             self.approved_loan_modifiers[key][contract_address] = True
